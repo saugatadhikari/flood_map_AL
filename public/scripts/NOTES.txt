@@ -1,0 +1,27 @@
+
+1. Start from a pretrained model (model trained on 2 or 3 regions)
+2. Acquisition function: how do they go from pixel to patch; do they take avg, min, max???
+        1. our case we can try min first and then max apart from avg
+        2. try entropy too
+        3. penalize vast difference between orig and transformed versions
+        4. consider consistency in acquisition as well (Dr. Wang's idea)
+3. Loss function:
+    1. Compute difference with the mean of all (don't take any arbitrary transformation)
+4. Frontend
+    1. Space key: hold color of superpixels during annotation : DONE
+    2. Enter key: hold predicted labels: DONE
+    3. OR relation between ticks and button press : DONE
+    4. Users annotation should not be impacted once we get response from backend: DONE
+        --> users can continue annotation while model is training: DONE
+        --> Move loading button to top or side: DONE
+        --> latest labels will be used for retraining: DONE
+        --> update the old superpixels --> just show the latest ones: DONE
+    5. Different modes for annotation
+        1. Only annotate recommended: DONE
+        2. Correct mistake prediction during annotation : DONE
+           --> this can be used as feedback to model in addition to recommended regions: DONE
+    
+    6. Mask out forests should not be shown during recommemdation 
+        --> ban them from being annotated and don't include them in loss computation
+5. Backend
+    1. penalize corrected annotation from users if model still predicts the old labels
