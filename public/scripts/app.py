@@ -4,6 +4,7 @@ import os
 from PIL import Image
 import gzip
 import numpy as np
+from flask_cors import CORS
 
 # from vtkmodules.all import (
 #     vtkTIFFReader,
@@ -26,6 +27,7 @@ from al import train, recommend_superpixels
 
 
 app = Flask(__name__)
+CORS(app)
 app.config["UPLOAD_FOLDER"] = "static/files"
 
 APP_ROOT = os.path.dirname(os.path.abspath(__file__))
@@ -62,7 +64,7 @@ def stl():
     if request.method == 'POST':
         f = request.files['file']
         f.save(f.filename)
-        subprocess.check_output(['./hmm', f.filename, 'a.stl', '-z', '500', '-t', '10000000'])
+#         subprocess.check_output(['./hmm', f.filename, 'a.stl', '-z', '500', '-t', '10000000'])
         payload = make_response(send_file('a.stl'))
         payload.headers.add('Access-Control-Allow-Origin', '*')
         # os.remove('a.stl')
@@ -92,7 +94,32 @@ def pred():
 
 @app.route('/confidence')
 def confidence():
+    # forest_arr = cv2.imread('R1_forest.png')
+    # list_data = forest_arr.tolist()
+    # json_data = {}
+    # for i in range(forest_arr.shape[0]):
+    #     for j in range(forest_arr.shape[1]):
+    #         index = i * forest_arr.shape[1] + j
+    #         json_data[index] = list_data[i][j][1]
+
     payload = make_response(send_file('R1_forest.png'))
+    # payload.json = json_data
+    payload.headers.add('Access-Control-Allow-Origin', '*')
+
+    return payload
+
+@app.route('/confidence_json', methods=['GET'])
+def confidence_json():
+    forest_arr = cv2.imread('R1_forest.png')
+    list_data = forest_arr.tolist()
+    json_data = {}
+    for i in range(forest_arr.shape[0]):
+        for j in range(forest_arr.shape[1]):
+            index = i * forest_arr.shape[1] + j
+            json_data[index] = list_data[i][j][1]
+
+    payload = make_response(jsonify(json_data), 200)
+    # payload.json = json_data
     payload.headers.add('Access-Control-Allow-Origin', '*')
 
     return payload

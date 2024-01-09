@@ -180,6 +180,40 @@ void main(){
       out_FragColor = vec4(color + cColor, 1.0);
     }
 
+    if (confidence == 1){
+      if (annotation == 1){
+        if (prediction == 1 && superpixel ==1){
+          vec3 cColor = sampleTexture(confidenceTexture, vPosition.xy).rgb;
+          vec3 pColor = sampleTexture(predictionTexture, vPosition.xy).rgb;
+          vec3 sColor = sampleTexture(superpixelTexture, vPosition.xy).rgb;
+          vec3 aColor = sampleTexture(annotationTexture, vPosition.xy).rgb;
+          out_FragColor = vec4(color + aColor + sColor + pColor + cColor, 1.0);
+        }
+        else if (prediction == 1 && superpixel == 0){
+          vec3 cColor = sampleTexture(confidenceTexture, vPosition.xy).rgb;
+          vec3 pColor = sampleTexture(predictionTexture, vPosition.xy).rgb;
+          vec3 aColor = sampleTexture(annotationTexture, vPosition.xy).rgb;
+          out_FragColor = vec4(color + aColor + pColor + cColor, 1.0);
+        }
+        else if (prediction == 0 && superpixel == 1){
+          vec3 cColor = sampleTexture(confidenceTexture, vPosition.xy).rgb;
+          vec3 sColor = sampleTexture(superpixelTexture, vPosition.xy).rgb;
+          vec3 aColor = sampleTexture(annotationTexture, vPosition.xy).rgb;
+          out_FragColor = vec4(color + aColor + sColor + cColor, 1.0);
+        }
+        else{
+          vec3 cColor = sampleTexture(confidenceTexture, vPosition.xy).rgb;
+          vec3 aColor = sampleTexture(annotationTexture, vPosition.xy).rgb;
+          out_FragColor = vec4(color + cColor + aColor, 1.0);
+        }
+        
+      }
+      else {
+        vec3 cColor = sampleTexture(confidenceTexture, vPosition.xy).rgb;
+        out_FragColor = vec4(color + cColor, 1.0);
+      }
+    }
+
     // if (annotation == 1) {
     //     vec3 aColor = sampleTexture(annotationTexture, vPosition.xy).rgb;
     //     if (prediction == 1){

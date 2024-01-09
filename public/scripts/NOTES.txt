@@ -1,12 +1,20 @@
 
-1. Start from a pretrained model (model trained on 2 or 3 regions)
-2. Acquisition function: how do they go from pixel to patch; do they take avg, min, max???
+1. Start from a pretrained model (model trained on 2 or 3 regions): DONE
+2. Acquisition function: how do they go from pixel to patch; do they take avg, min, max??? --> average (torch.mean())
+    --> start with full image and get its entropy
+    --> divide into rectangular regions
+    --> get average entropy of divided rectangular regions
+    --> select ones with highest entropy
+
         1. our case we can try min first and then max apart from avg
-        2. try entropy too
-        3. penalize vast difference between orig and transformed versions
-        4. consider consistency in acquisition as well (Dr. Wang's idea)
-3. Loss function:
-    1. Compute difference with the mean of all (don't take any arbitrary transformation)
+            --> min gives most uncertain 
+        2. penalize vast difference between orig and transformed versions
+        3. consider consistency in acquisition as well (Dr. Wang's idea)
+            --> recommend superpixels with highest self-consistency loss
+        4. try entropy too
+3. Loss function: DONE
+    1. Compute difference with the mean of all (don't take any arbitrary transformation): DONE
+
 4. Frontend
     1. Space key: hold color of superpixels during annotation : DONE
     2. Enter key: hold predicted labels: DONE
@@ -25,3 +33,8 @@
         --> ban them from being annotated and don't include them in loss computation
 5. Backend
     1. penalize corrected annotation from users if model still predicts the old labels
+6. Superpixels
+
+
+TODOs:
+1. do not recommend already labelled regions

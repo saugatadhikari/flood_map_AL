@@ -73,6 +73,7 @@ interface PixelDict {
   }
 
 const pixelDict: PixelDict = {};
+var confidenceJSON: PixelDict
 
 let host = ''
 if (location.hostname === 'localhost' || location.hostname === '127.0.0.1' || location.hostname === '172.28.200.135') {
@@ -1121,16 +1122,21 @@ const onKeyPress = (event: KeyboardEvent) => {
         hoverHandler()
     } else if (event.key == 'f' && metaState.BFS) {
         let [x, y] = performRayCasting()
-        y = regionDimensions[1] - 1 - y
-        // BFSHandler(x, y, params.flood, params.clear)
+        // console.log("x: ", x)
+        // console.log("y1: ", y)
 
-        const pixelIndex = y * regionDimensions[1] + x
-        const pixelVal = pixelDict[pixelIndex]
+        y = regionDimensions[1] - 1 - y
+        // console.log("y2: ", y)
+        BFSHandler(x, y, params.flood, params.clear)
+
+        // const pixelIndex = y * regionDimensions[1] + x
+        // const pixelVal = confidenceJSON[pixelIndex]
         
-        if (pixelVal == 0){
-            // y = regionDimensions[1] - 1 - y
-            BFSHandler(x, y, params.flood, params.clear)
-        }
+        // console.log("pixelVal: ", pixelVal)f
+        // if (pixelVal == 0){
+        //     y = regionDimensions[1] - 1 - y
+        //     BFSHandler(x, y, params.flood, params.clear)
+        // }
         // y = regionDimensions[1] - 1 - y
         // BFSHandler(x, y, params.flood, params.clear)
     } else if (event.key == 't' && metaState.brushSelection) {
@@ -1428,26 +1434,29 @@ var texContext : CanvasRenderingContext2D
                                     // // Add the canvas to the document or perform other actions
                                     // document.body.appendChild(predCanvas);
                                 };
-
+                                
+                                // const confidenceResponse = await fetch('http://127.0.0.1:5000/confidence');
+                                // const confidenceBuffer = confidenceResponse.arrayBuffer();
+                                // const confidenceJson = confidenceResponse.json();
                                 const confidenceBuffer = await fetch('http://127.0.0.1:5000/confidence').then(response => response.arrayBuffer());
                                 console.log("confidenceBuffer: ", confidenceBuffer)
 
-                                // forestArray = new DataView(confidenceBuffer);
-                                const pixelData = UPNG.decode(confidenceBuffer);
-                                forestArray = pixelData.data;
+                                // // forestArray = new DataView(confidenceBuffer);
+                                // const pixelData = UPNG.decode(confidenceBuffer);
+                                // forestArray = pixelData.data;
 
-                                // Iterate through pixels and store values in the dictionary
-                                for (let i = 0; i < forestArray.length; i += 3) {
-                                    // Calculate the pixel position (assuming a 3-byte RGBA format)
-                                    const pixelPosition = i / 3;
+                                // // Iterate through pixels and store values in the dictionary
+                                // for (let i = 0; i < forestArray.length; i += 3) {
+                                //     // Calculate the pixel position (assuming a 3-byte RGBA format)
+                                //     const pixelPosition = i / 3;
                                 
-                                    // Store the pixel value in the dictionary
-                                    pixelDict[pixelPosition] = forestArray[i + 1]
-                                }
+                                //     // Store the pixel value in the dictionary
+                                //     pixelDict[pixelPosition] = forestArray[i + 1]
+                                // }
 
-                                console.log("index0: ", pixelDict[0])
-                                console.log("index1500: ", pixelDict[1500])
-                                console.log(forestArray)
+                                // console.log("index0: ", pixelDict[0])
+                                // console.log("index1500: ", pixelDict[1500])
+                                // console.log(forestArray)
 
                                 // Convert ArrayBuffer to base64
                                 const base64ImageConfidence = arrayBufferToBase64(confidenceBuffer)
@@ -1472,6 +1481,9 @@ var texContext : CanvasRenderingContext2D
                                 // Draw the image on the canvas
                                 confidenceContext!.drawImage(imgConfidence, 0, 0);
                                 confidenceTexture.needsUpdate = true // saugat
+
+                                // confidenceJSON = await fetch('http://127.0.0.1:5000/confidence_json').then(response => response.json());
+                                // console.log("confidenceJSON: ", confidenceJSON)
 
                                 
                             } catch (e) {
