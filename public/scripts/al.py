@@ -28,6 +28,9 @@ from PIL import Image
 DEVICE = 'cuda' if torch.cuda.is_available() else 'cpu'
 print(DEVICE)
 
+# these variables should just be updated in each iteration
+labeled_superpixels = {}
+
 def get_meta_data(DATASET_PATH):
     
     DATASET = os.listdir(DATASET_PATH)
@@ -64,6 +67,8 @@ def run_pred_al(model, data_loader):
     ## Model gets set to evaluation mode
     model.eval()
     pred_patches_dict = dict()
+    avg_pred_patches_dict = dict()
+    min_pred_patches_dict = dict()
     
     for data_dict in tqdm(data_loader):
         
@@ -79,7 +84,6 @@ def run_pred_al(model, data_loader):
         ## Get model prediction
         pred = model(rgb_data, norm_elev_data)
 
-        # TODO: flip and rotate
         rgb_data_flipx = torch.flip(rgb_data, dims=(-1,))
         rgb_data_flipy = torchvision.transforms.functional.vflip(rgb_data)
         rgb_data_rot90 = torchvision.transforms.functional.rotate(rgb_data, angle=90)
@@ -114,21 +118,265 @@ def run_pred_al(model, data_loader):
         pred_rot180_abs = torch.abs(pred_rot180_inv - half_array)
         pred_rot270_abs = torch.abs(pred_rot270_inv - half_array)
 
-        avg_prob = torch.sum(torch.stack([pred, pred_flipx_inv, pred_flipy_inv, pred_rot90_inv, pred_rot180_inv, pred_rot270_inv]), dim=0) / 6
-#         avg_prob = torch.sum(torch.stack([pred_abs, pred_flipx_abs, pred_flipy_abs, pred_rot90_abs, pred_rot180_abs, pred_rot270_abs]), dim=0) / 6
+        # avg_prob = torch.sum(torch.stack([pred, pred_flipx_inv, pred_flipy_inv, pred_rot90_inv, pred_rot180_inv, pred_rot270_inv]), dim=0) / 6
+        avg_prob = torch.sum(torch.stack([pred, pred_flipx_abs, pred_flipy_abs, pred_rot90_abs, pred_rot180_abs, pred_rot270_abs]), dim=0) / 6
         avg_prob_np = avg_prob.detach().cpu().numpy()
 
-#         avg_prob_np = pred.detach().cpu().numpy()
+        # print("avg_prob_shape: ", avg_prob.shape)
+        # print("avg_prob_np_shape: ", avg_prob_np.shape)
+        # print("loss_array_sc: ", loss_array_sc.shape)
 
-        # ## Remove pred and GT from GPU and convert to np array
-        # pred_labels_np = pred.detach().cpu().numpy() 
-        # gt_labels_np = labels.detach().cpu().numpy()
+        # min_prob = torch.min(torch.stack([pred, pred_flipx_abs, pred_flipy_abs, pred_rot90_abs, pred_rot180_abs, pred_rot270_abs]), dim=0)
+        # min_prob_np = min_prob.values
+
+        pred_np = pred.detach().cpu().numpy()
         
         ## Save Image and RGB patch
         for idx in range(rgb_data.shape[0]):
-            pred_patches_dict[filename[idx]] = avg_prob_np[idx, :, :, :]
+            avg_pred_patches_dict[filename[idx]] = avg_prob_np[idx, :, :, :]
+            # min_pred_patches_dict[filename[idx]] = min_prob_np[idx, :, :, :]
+            pred_patches_dict[filename[idx]] = pred_np[idx, :, :, :]
         
-    return pred_patches_dict 
+    # return avg_pred_patches_dict, min_pred_patches_dict, pred_patches_dict
+    return pred_patches_dict, avg_pred_patches_dict
+
+def run_pred_al_min(model, data_loader):
+    
+    ## Model gets set to evaluation mode
+    model.eval()
+    pred_patches_dict = dict()
+    avg_pred_patches_dict = dict()
+    min_pred_patches_dict = dict()
+    
+    for data_dict in tqdm(data_loader):
+        
+        ## RGB data
+        rgb_data = data_dict['rgb_data'].float().to(DEVICE)
+
+        ## Elevation data
+        norm_elev_data = data_dict['norm_elev_data'].float().to(DEVICE)
+
+        ## Get filename
+        filename = data_dict['filename']
+
+        ## Get model prediction
+        pred = model(rgb_data, norm_elev_data)
+
+        rgb_data_flipx = torch.flip(rgb_data, dims=(-1,))
+        rgb_data_flipy = torchvision.transforms.functional.vflip(rgb_data)
+        rgb_data_rot90 = torchvision.transforms.functional.rotate(rgb_data, angle=90)
+        rgb_data_rot180 = torchvision.transforms.functional.rotate(rgb_data, angle=180)
+        rgb_data_rot270 = torchvision.transforms.functional.rotate(rgb_data, angle=270)
+        
+        norm_elev_data_flipx = torch.flip(norm_elev_data, dims=(-1,))
+        norm_elev_data_flipy = torchvision.transforms.functional.vflip(norm_elev_data)
+        norm_elev_data_rot90 = torchvision.transforms.functional.rotate(norm_elev_data, angle=90)
+        norm_elev_data_rot180 = torchvision.transforms.functional.rotate(norm_elev_data, angle=180)
+        norm_elev_data_rot270 = torchvision.transforms.functional.rotate(norm_elev_data, angle=270)
+
+        pred_flipx = model(rgb_data_flipx, norm_elev_data_flipx) # get pred for horizontal flip
+        pred_flipy = model(rgb_data_flipy, norm_elev_data_flipy) # get pred for horizontal flip
+        pred_rot90 = model(rgb_data_rot90, norm_elev_data_rot90) # get pred for horizontal flip
+        pred_rot180 = model(rgb_data_rot180, norm_elev_data_rot180) # get pred for horizontal flip
+        pred_rot270 = model(rgb_data_rot270, norm_elev_data_rot270) # get pred for horizontal flip
+        
+        pred_flipx_inv = torch.flip(pred_flipx, dims=(-1,)) # flip back to original orientation
+        pred_flipy_inv = torchvision.transforms.functional.vflip(pred_flipy) # flip back to original orientation
+        pred_rot90_inv = torchvision.transforms.functional.rotate(pred_rot90, angle=270)
+        pred_rot180_inv = torchvision.transforms.functional.rotate(pred_rot180, angle=180)
+        pred_rot270_inv = torchvision.transforms.functional.rotate(pred_rot270, angle=90)
+
+        s1,s2,s3,s4 = pred.shape
+        half_array = torch.tensor(np.full((s1, s2, s3, s4), 0.5)).to(DEVICE)
+        
+        pred_abs = torch.abs(pred - half_array)
+        pred_flipx_abs = torch.abs(pred_flipx_inv - half_array)
+        pred_flipy_abs = torch.abs(pred_flipy_inv - half_array)
+        pred_rot90_abs = torch.abs(pred_rot90_inv - half_array)
+        pred_rot180_abs = torch.abs(pred_rot180_inv - half_array)
+        pred_rot270_abs = torch.abs(pred_rot270_inv - half_array)
+
+        min_prob = torch.min(torch.stack([pred, pred_flipx_abs, pred_flipy_abs, pred_rot90_abs, pred_rot180_abs, pred_rot270_abs]), dim=0)
+        min_prob_np = min_prob.values
+        min_prob_np = min_prob_np.detach().cpu().numpy()
+
+        pred_np = pred.detach().cpu().numpy()
+        
+        ## Save Image and RGB patch
+        for idx in range(rgb_data.shape[0]):
+            min_pred_patches_dict[filename[idx]] = min_prob_np[idx, :, :, :]
+            pred_patches_dict[filename[idx]] = pred_np[idx, :, :, :]
+        
+    return pred_patches_dict, min_pred_patches_dict
+
+def run_pred_al_sc(model, data_loader):
+    
+    ## Model gets set to evaluation mode
+    model.eval()
+    pred_patches_dict = dict()
+    avg_pred_patches_dict = dict()
+    min_pred_patches_dict = dict()
+    loss_patches_dict = dict()
+    
+    for data_dict in tqdm(data_loader):
+        
+        ## RGB data
+        rgb_data = data_dict['rgb_data'].float().to(DEVICE)
+
+        ## Elevation data
+        norm_elev_data = data_dict['norm_elev_data'].float().to(DEVICE)
+
+        ## Get filename
+        filename = data_dict['filename']
+
+        ## Get model prediction
+        pred = model(rgb_data, norm_elev_data)
+
+        rgb_data_flipx = torch.flip(rgb_data, dims=(-1,))
+        rgb_data_flipy = torchvision.transforms.functional.vflip(rgb_data)
+        rgb_data_rot90 = torchvision.transforms.functional.rotate(rgb_data, angle=90)
+        rgb_data_rot180 = torchvision.transforms.functional.rotate(rgb_data, angle=180)
+        rgb_data_rot270 = torchvision.transforms.functional.rotate(rgb_data, angle=270)
+        
+        norm_elev_data_flipx = torch.flip(norm_elev_data, dims=(-1,))
+        norm_elev_data_flipy = torchvision.transforms.functional.vflip(norm_elev_data)
+        norm_elev_data_rot90 = torchvision.transforms.functional.rotate(norm_elev_data, angle=90)
+        norm_elev_data_rot180 = torchvision.transforms.functional.rotate(norm_elev_data, angle=180)
+        norm_elev_data_rot270 = torchvision.transforms.functional.rotate(norm_elev_data, angle=270)
+
+        pred_flipx = model(rgb_data_flipx, norm_elev_data_flipx) # get pred for horizontal flip
+        pred_flipy = model(rgb_data_flipy, norm_elev_data_flipy) # get pred for horizontal flip
+        pred_rot90 = model(rgb_data_rot90, norm_elev_data_rot90) # get pred for horizontal flip
+        pred_rot180 = model(rgb_data_rot180, norm_elev_data_rot180) # get pred for horizontal flip
+        pred_rot270 = model(rgb_data_rot270, norm_elev_data_rot270) # get pred for horizontal flip
+        
+        pred_flipx_inv = torch.flip(pred_flipx, dims=(-1,)) # flip back to original orientation
+        pred_flipy_inv = torchvision.transforms.functional.vflip(pred_flipy) # flip back to original orientation
+        pred_rot90_inv = torchvision.transforms.functional.rotate(pred_rot90, angle=270)
+        pred_rot180_inv = torchvision.transforms.functional.rotate(pred_rot180, angle=180)
+        pred_rot270_inv = torchvision.transforms.functional.rotate(pred_rot270, angle=90)
+
+        s1,s2,s3,s4 = pred.shape
+        half_array = torch.tensor(np.full((s1, s2, s3, s4), 0.5)).to(DEVICE)
+        
+        pred_abs = torch.abs(pred - half_array)
+        pred_flipx_abs = torch.abs(pred_flipx_inv - half_array)
+        pred_flipy_abs = torch.abs(pred_flipy_inv - half_array)
+        pred_rot90_abs = torch.abs(pred_rot90_inv - half_array)
+        pred_rot180_abs = torch.abs(pred_rot180_inv - half_array)
+        pred_rot270_abs = torch.abs(pred_rot270_inv - half_array)
+
+        all_logits = [pred, pred_flipx_inv, pred_flipy_inv, pred_rot90_inv, pred_rot180_inv, pred_rot270_inv]
+        # all_logits = [pred, pred_flipx_inv]
+
+        # labels = data_dict['labels'].float().to(DEVICE)
+        # labels.requires_grad = False  
+
+        loss_array_sc = loss_self_consistency_acquisition(all_logits)
+
+        # # avg_prob = torch.sum(torch.stack([pred, pred_flipx_inv, pred_flipy_inv, pred_rot90_inv, pred_rot180_inv, pred_rot270_inv]), dim=0) / 6
+        # avg_prob = torch.sum(torch.stack([pred_abs, pred_flipx_abs, pred_flipy_abs, pred_rot90_abs, pred_rot180_abs, pred_rot270_abs]), dim=0) / 6
+        # avg_prob_np = avg_prob.detach().cpu().numpy()
+
+        pred_np = pred.detach().cpu().numpy()
+        loss_array_sc_np = loss_array_sc.detach().cpu().numpy()
+        
+ 
+        for idx in range(rgb_data.shape[0]):
+            # avg_pred_patches_dict[filename[idx]] = avg_prob_np[idx, :, :, :]
+            # min_pred_patches_dict[filename[idx]] = min_prob_np[idx, :, :, :]
+            pred_patches_dict[filename[idx]] = pred_np[idx, :, :, :]
+            loss_patches_dict[filename[idx]] = loss_array_sc_np[idx, :, :, :]
+        
+    return pred_patches_dict, loss_patches_dict
+
+def run_pred_al_entropy(model, data_loader):
+    
+    ## Model gets set to evaluation mode
+    model.eval()
+    pred_patches_dict = dict()
+    entropy_patches_dict = dict()
+    
+    for data_dict in tqdm(data_loader):
+        
+        ## RGB data
+        rgb_data = data_dict['rgb_data'].float().to(DEVICE)
+
+        ## Elevation data
+        norm_elev_data = data_dict['norm_elev_data'].float().to(DEVICE)
+
+        ## Get filename
+        filename = data_dict['filename']
+
+        ## Get model prediction
+        pred = model(rgb_data, norm_elev_data)
+
+        rgb_data_flipx = torch.flip(rgb_data, dims=(-1,))
+        rgb_data_flipy = torchvision.transforms.functional.vflip(rgb_data)
+        rgb_data_rot90 = torchvision.transforms.functional.rotate(rgb_data, angle=90)
+        rgb_data_rot180 = torchvision.transforms.functional.rotate(rgb_data, angle=180)
+        rgb_data_rot270 = torchvision.transforms.functional.rotate(rgb_data, angle=270)
+        
+        norm_elev_data_flipx = torch.flip(norm_elev_data, dims=(-1,))
+        norm_elev_data_flipy = torchvision.transforms.functional.vflip(norm_elev_data)
+        norm_elev_data_rot90 = torchvision.transforms.functional.rotate(norm_elev_data, angle=90)
+        norm_elev_data_rot180 = torchvision.transforms.functional.rotate(norm_elev_data, angle=180)
+        norm_elev_data_rot270 = torchvision.transforms.functional.rotate(norm_elev_data, angle=270)
+
+        pred_flipx = model(rgb_data_flipx, norm_elev_data_flipx) # get pred for horizontal flip
+        pred_flipy = model(rgb_data_flipy, norm_elev_data_flipy) # get pred for horizontal flip
+        pred_rot90 = model(rgb_data_rot90, norm_elev_data_rot90) # get pred for horizontal flip
+        pred_rot180 = model(rgb_data_rot180, norm_elev_data_rot180) # get pred for horizontal flip
+        pred_rot270 = model(rgb_data_rot270, norm_elev_data_rot270) # get pred for horizontal flip
+        
+        pred_flipx_inv = torch.flip(pred_flipx, dims=(-1,)) # flip back to original orientation
+        pred_flipy_inv = torchvision.transforms.functional.vflip(pred_flipy) # flip back to original orientation
+        pred_rot90_inv = torchvision.transforms.functional.rotate(pred_rot90, angle=270)
+        pred_rot180_inv = torchvision.transforms.functional.rotate(pred_rot180, angle=180)
+        pred_rot270_inv = torchvision.transforms.functional.rotate(pred_rot270, angle=90)
+
+        # all_logits = [pred, pred_flipx_inv, pred_flipy_inv, pred_rot90_inv, pred_rot180_inv, pred_rot270_inv]
+        all_logits = [pred, pred_flipx_inv, pred_flipy_inv, pred_rot90_inv, pred_rot180_inv, pred_rot270_inv]
+
+        entropy = compute_entropy(all_logits)
+
+        pred_np = pred.detach().cpu().numpy()
+        entropy_np = entropy.detach().cpu().numpy()
+        
+ 
+        for idx in range(rgb_data.shape[0]):
+            entropy_patches_dict[filename[idx]] = entropy_np[idx, :, :, :]
+            pred_patches_dict[filename[idx]] = pred_np[idx, :, :, :]
+
+    return pred_patches_dict, entropy_patches_dict
+
+
+def compute_entropy(outputs):
+
+    for i, output in enumerate(outputs):
+        # print("output_shape: ", output.shape)
+        prob_out = torch.nn.functional.softmax(output, dim = 1)
+        # print("prob_out_shape: ", prob_out.shape)
+
+        log_out =-1* torch.log(prob_out)
+        log_out[log_out != log_out] = 0
+        log_out[log_out == float("Inf")] = 0
+        log_out[log_out == -float("Inf")] = 0
+        log_out[log_out == float("-Inf")] = 0
+
+        entropy_computed = log_out * prob_out
+        # print("entropy_computed_shape: ", entropy_computed.shape)
+        # entropy_map = torch.sum(entropy_computed, dim=1) # summation over c in paper
+
+        if i == 0:
+            numpy_ent_total = entropy_computed
+        else:
+            numpy_ent_total += entropy_computed
+        
+        # print("numpy_ent_total_shape: ", numpy_ent_total.shape)
+   
+    return numpy_ent_total 
+
 
 def run_pred_final(model, data_loader):
     
@@ -292,7 +540,7 @@ def stitch_patches_GT_labels(pred_patches_dict, TEST_REGION):
     
     return label_stitched, pred_stitched
 
-def stitch_patches(pred_patches_dict, TEST_REGION):
+def stitch_patches(pred_patches_dict, TEST_REGION, LOSS_SC=False):
     cropped_data_path = f"./data_al/Region_{TEST_REGION}_TEST/cropped_data_val_test_al"
     y_max, x_max = find_patch_meta(pred_patches_dict)
     
@@ -357,7 +605,6 @@ def center_crop(stictched_data, original_height, original_width, image = False):
     
     return cropped
 
-# TODO: try different schemes like min
 def get_superpixel_scores(superpixels_group, logits):
     superpixel_scores = {}
     for sid, pixels in superpixels_group.items():
@@ -370,6 +617,7 @@ def get_superpixel_scores(superpixels_group, logits):
         superpixel_scores[sid] = avg_score
     
     return superpixel_scores
+
 
 def get_superpixel_scores_min(superpixels_group, logits):
     superpixel_scores = {}
@@ -406,9 +654,13 @@ def loss_self_consistency(logits: list, labels):
 
 #     known_mask = torch.where(labels != 0, ones, 0)
     
+    avg_logits = (logits[0] + logits[1] + logits[2] + logits[3] + logits[4] + logits[5])/6
+    
     original_logit = logits[0]
-    for transformed_logit in logits[1:]:
-        l1, l2 = original_logit, transformed_logit
+    # for transformed_logit in logits[1:]:
+    for transformed_logit in logits:
+        # l1, l2 = original_logit, transformed_logit
+        l1, l2 = avg_logits, transformed_logit
         diff = torch.subtract(l1, l2)
 #         diff = known_mask * diff
         norm = torch.norm(diff)
@@ -417,10 +669,33 @@ def loss_self_consistency(logits: list, labels):
 
     _, W, H, C = logits[0].shape
     loss = (total_sum)/(W * H * C * counter)
-#     loss = (total_sum)/(W * H * C)
     return loss
-#     loss = np.asarray([loss])
-#     return torch.tensor(loss)
+
+def loss_self_consistency_acquisition(logits: list):
+    if not logits:
+        return 0
+
+    counter = 0    
+    avg_logits = (logits[0] + logits[1] + logits[2] + logits[3] + logits[4] + logits[5])/6
+    # avg_logits = (logits[0] + logits[1]) / 2
+    
+    original_logit = logits[0]
+
+    s1, s2, s3, s4 = logits[0].shape
+    # sum_array = torch.tensor(np.full((s1, s2, s3, s4), 0)).to(DEVICE)
+
+    for i, transformed_logit in enumerate(logits):
+        # l1, l2 = original_logit, transformed_logit
+        l1, l2 = avg_logits, transformed_logit
+        diff = torch.subtract(l1, l2)
+        if i == 0:
+            sum_array = diff
+        else:
+            sum_array += diff
+        counter += 1
+
+    loss_array = sum_array / counter
+    return loss_array
 
 def label_acquisition(selected_superpixels, elev_data, gt_labels, current_labels, superpixels_group):
     """
@@ -441,7 +716,7 @@ def label_acquisition(selected_superpixels, elev_data, gt_labels, current_labels
     
     return updated_labels
 
-def select_superpixels(total_superpixels, superpixel_scores, labeled_superpixels, rejection_superpixels):
+def select_superpixels(total_superpixels, superpixel_scores, rejection_superpixels):
     max_items = min(config.NUM_RECOMMEND, total_superpixels)
     select_count = 0
     selected_superpixels = []
@@ -454,7 +729,7 @@ def select_superpixels(total_superpixels, superpixel_scores, labeled_superpixels
                 labeled_superpixels[sid] = True
                 select_count += 1
     
-    return labeled_superpixels, selected_superpixels, max_items
+    return selected_superpixels, max_items
 
 class EarlyStopping:
 	"""
@@ -505,13 +780,15 @@ def convert_to_rgb(input_array):
 
     return rgb_image
 
+
 def recommend_superpixels(TEST_REGION):
-    return # TODO: remove after test
+    # return # TODO: remove after test
 
     start = time.time()
+    DATASET_PATH = "./data_al/repo/Features_7_Channels"
 
-    superpixels = np.load(f"./data_al/superpixels/Region_{TEST_REGION}/Region_{TEST_REGION}_superpixels.npy")
-    rejection = np.load(f"./data_al/rejection/Region_{TEST_REGION}_rejection.npy")
+    superpixels = np.load(f"./data_al/superpixels/Region_{TEST_REGION}/Region_{TEST_REGION}_superpixels.npy") # TODO: make is a global variable or store in cache
+    rejection = np.load(f"./data_al/rejection/Region_{TEST_REGION}_rejection.npy") # TODO: make is a global variable or store in cache
 
     superpixels_group = defaultdict(list)
     rejection_superpixels = {}
@@ -532,13 +809,11 @@ def recommend_superpixels(TEST_REGION):
             if is_reject:
                 reject_count += 1
 
-        reject_fraction = reject_count / total_pixels
-        if reject_fraction >= 1.0:
+        reject_fraction = int(reject_count / total_pixels)
+        if reject_fraction == 1:
             rejection_superpixels[sid] = True
         else:
             rejection_superpixels[sid] = False
-
-    labeled_superpixels = {}
 
     # read resume epoch from text file if exists
     try:
@@ -568,9 +843,10 @@ def recommend_superpixels(TEST_REGION):
 
     model_path = f"./saved_models_evanet/Region_{TEST_REGION}_TEST/saved_model_AL_{resume_epoch}.ckpt"
     if os.path.exists(model_path):
-        checkpoint = torch.load(model_path)
+        checkpoint = torch.load(model_path, map_location=torch.device(DEVICE))
         model.load_state_dict(checkpoint['model'])
-        print(f"Resuming from epoch {resume_epoch}")
+        pretrained_epoch = checkpoint['epoch']
+        print(f"Resuming from epoch {pretrained_epoch}")
     # else:
     #     print("No model found!!!")
     #     exit(0)
@@ -578,35 +854,67 @@ def recommend_superpixels(TEST_REGION):
     ## Model gets set to evaluation mode
     model.eval()
     pred_patches_dict = dict()
+
+    META_DATA = get_meta_data(DATASET_PATH)
     
     ## Run prediciton
     cropped_data_path = f"./data_al/Region_{TEST_REGION}_TEST/cropped_data_val_test_al"
     test_dataset = get_dataset(cropped_data_path)
     test_loader = DataLoader(test_dataset, batch_size = config.BATCH_SIZE)
-    pred_patches_dict = run_pred_al(model, test_loader)
+
+    if config.SC_LOSS:
+        pred_patches_dict, loss_patches_dict = run_pred_al_sc(model, test_loader)
+        _, loss_stitched = stitch_patches(loss_patches_dict, TEST_REGION, LOSS_SC=True)
+        loss_unpadded = center_crop(loss_stitched, height, width, image = False)
+        loss_unpadded = np.sum(loss_unpadded, axis=-1)
+
+        superpixel_scores = get_superpixel_scores(superpixels_group, loss_unpadded)
+    
+        # sort by prob score in ascending order; most uncertain superpixel first (whichever is close to 0.5)
+        superpixel_scores = dict(sorted(superpixel_scores.items(), key=lambda item: item[1]), reverse=True)
+        selected_superpixels, max_items = select_superpixels(total_superpixels, superpixel_scores, rejection_superpixels)
+    elif config.SC_ENTROPY:
+        pred_patches_dict, entropy_patches_dict = run_pred_al_entropy(model, test_loader)
+        _, entropy_stitched = stitch_patches(entropy_patches_dict, TEST_REGION)
+        entropy_unpadded = center_crop(entropy_stitched, height, width, image = False)
+        entropy_unpadded = np.sum(entropy_unpadded, axis=-1)
+
+        superpixel_scores = get_superpixel_scores(superpixels_group, entropy_unpadded)
+    
+        # sort by prob score in ascending order; most uncertain superpixel first (whichever is close to 0.5)
+        superpixel_scores = dict(sorted(superpixel_scores.items(), key=lambda item: item[1]), reverse=True)
+        selected_superpixels, max_items = select_superpixels(total_superpixels, superpixel_scores, rejection_superpixels)
+    elif config.SC_MIN:
+        pred_patches_dict, min_pred_patches_dict = run_pred_al_min(model, test_loader)
+        _, pred_stitched = stitch_patches(min_pred_patches_dict, TEST_REGION)
+        pred_unpadded = center_crop(pred_stitched, height, width, image = False)
+        pred_unpadded = pred_unpadded[:,:,0]
+
+        superpixel_scores = get_superpixel_scores(superpixels_group, pred_unpadded)
+    
+        # sort by prob score in ascending order; most uncertain superpixel first (whichever is close to 0.5)
+        superpixel_scores = dict(sorted(superpixel_scores.items(), key=lambda item: item[1]))
+        selected_superpixels, max_items = select_superpixels(total_superpixels, superpixel_scores, rejection_superpixels)
+    else:
+        pred_patches_dict, avg_pred_patches_dict = run_pred_al(model, test_loader)
+        rgb_stitched, pred_stitched = stitch_patches(avg_pred_patches_dict, TEST_REGION)
+        pred_unpadded = center_crop(pred_stitched, height, width, image = False)
+        pred_unpadded = pred_unpadded[:,:,0]
+
+        superpixel_scores = get_superpixel_scores(superpixels_group, pred_unpadded)
+    
+        # sort by prob score in ascending order; most uncertain superpixel first (whichever is close to 0.5)
+        superpixel_scores = dict(sorted(superpixel_scores.items(), key=lambda item: item[1]))
+        selected_superpixels, max_items = select_superpixels(total_superpixels, superpixel_scores, rejection_superpixels)
+
 
     ## Stitch pred patches back together
-    rgb_stitched, pred_stitched = stitch_patches(pred_patches_dict, TEST_REGION)
-
-    ## Remove border padding
-    pred_unpadded = center_crop(pred_stitched, height, width, image = False)
+    _, pred_stitched_2 = stitch_patches(pred_patches_dict, TEST_REGION)
+    pred_unpadded_2 = center_crop(pred_stitched_2, height, width, image = False)
+    pred_final = 1 - np.argmax(pred_unpadded_2, axis=-1)
     
-    s1,s2,s3 = pred_unpadded.shape
-    half_array = np.full((s1, s2, s3), 0.5) 
-    pred_abs = np.absolute(pred_unpadded - half_array)
-    
-    pred_unpadded = pred_abs[:,:,0]
-    superpixel_scores = get_superpixel_scores(superpixels_group, pred_unpadded)
-    # superpixel_scores = get_superpixel_scores_min(superpixels_group, pred_unpadded)
-    
-    # sort by prob score in ascending order; most uncertain superpixel first (whichever is close to 0.5)
-#     superpixel_scores = dict(sorted(superpixel_scores.items(), key=lambda item: abs(item[1] - 0.5)))
-    superpixel_scores = dict(sorted(superpixel_scores.items(), key=lambda item: item[1]))
-
-    labeled_superpixels, selected_superpixels, max_items = select_superpixels(total_superpixels, superpixel_scores, labeled_superpixels, rejection_superpixels)
-
     # get the superpixels to be recommended in this iteration and save as png
-    interval = (139 - 25) / (max_items - 1)
+    # interval = (139 - 25) / (max_items - 1)
     slot_values = np.linspace(0.1, 0.99, max_items)
 
     recommended_superpixels = np.zeros((height, width))
@@ -623,8 +931,8 @@ def recommend_superpixels(TEST_REGION):
     plt.imsave('./R1_superpixels_test.png', result_array)
 
     # save current prediction as png
-    flood_labels = np.where(pred_unpadded > 0.5, 1, 0)
-    dry_labels = np.where(pred_unpadded <= 0.5, 1, 0)
+    flood_labels = np.where(pred_final > 0.5, 1, 0)
+    dry_labels = np.where(pred_final <= 0.5, 1, 0)
     flood_labels = np.expand_dims(flood_labels, axis=-1)
     dry_labels = np.expand_dims(dry_labels, axis=-1)
     flood_labels = flood_labels*np.array([ [ [255, 0, 0] ] ])
@@ -636,7 +944,7 @@ def recommend_superpixels(TEST_REGION):
     return
 
 
-def ann_to_labels(png_image):
+def ann_to_labels(png_image, TEST_REGION):
     ann = cv2.imread(png_image)
     ann = cv2.cvtColor(ann, cv2.COLOR_BGR2RGB)
 
@@ -647,14 +955,18 @@ def ann_to_labels(png_image):
     dry_arr = np.where(dry, -1, 0)
 
     final_arr = flood_arr + dry_arr
+
+    # rejection = np.load(f"./data_al/rejection/Region_{TEST_REGION}_rejection.npy") # TODO
+    # accept_mask = np.where(rejection == 0, 1, 0)
+    # final_arr = final_arr * accept_mask
     
     return final_arr
 
 
 def train(TEST_REGION):
     print("Retraining the Model with new labels")
-    time.sleep(30)
-    return # TODO: remove after test
+#     time.sleep(30)
+#     return # TODO: remove after test
 
 
     model = EvaNet(config.BATCH_SIZE, config.IN_CHANNEL, config.N_CLASSES, ultrasmall = True).to(DEVICE)
@@ -672,14 +984,14 @@ def train(TEST_REGION):
 
     model_path = f"./saved_models_evanet/Region_{TEST_REGION}_TEST/saved_model_AL_{resume_epoch}.ckpt"
     if os.path.exists(model_path):
-        checkpoint = torch.load(model_path)
+        checkpoint = torch.load(model_path, map_location=torch.device(DEVICE))
         model.load_state_dict(checkpoint['model'])
         print(f"Resuming from epoch {resume_epoch}")
     # else:
     #     print("Model not found!!!")
     #     exit(0)
 
-    updated_labels = ann_to_labels("./R1_labels.png")
+    updated_labels = ann_to_labels("./R1_labels.png", TEST_REGION)
 
     # need to remake labels after getting updated labels
     remake_data(updated_labels, TEST_REGION)
@@ -699,8 +1011,11 @@ def train(TEST_REGION):
     early_stop = EarlyStopping(patience=7) # TODO: this should be a parameter
     VAL_FREQUENCY = 1
 
-    for epoch in range(resume_epoch, resume_epoch + config.EPOCHS):
-        print(f"EPOCH: {epoch}/{resume_epoch+config.EPOCHS} \r")
+    total_epochs = resume_epoch + config.EPOCHS
+
+    for epoch in range(resume_epoch, total_epochs):
+        print(f"EPOCH: {epoch+1}/{total_epochs} \r")
+
         ## Model gets set to training mode
         model.train()
         al_loss = 0 
@@ -776,8 +1091,8 @@ def train(TEST_REGION):
             # TODO: calculate L(self-consistency) based on eqn 5(c) EquAL
             loss_sc = loss_self_consistency(all_logits, labels)
 #             total_loss = loss1 + loss2 + loss3 + loss4 + loss5 + loss6 + loss_sc
-#             total_loss = (loss1 + loss2 + loss3 + loss4 + loss5 + loss6)/6 + loss_sc
-            total_loss = loss1 + loss_sc
+            total_loss = (loss1 + loss2 + loss3 + loss4 + loss5 + loss6)/6 + loss_sc
+            # total_loss = loss1 + loss_sc
 
             # backpropagate the total loss
 #             loss.backward()
@@ -863,8 +1178,8 @@ def train(TEST_REGION):
                 # TODO: calculate L(self-consistency) based on eqn 5(c) EquAL
                 loss_sc = loss_self_consistency(all_logits, labels)
 #                 total_loss = loss1 + loss2 + loss3 + loss4 + loss5 + loss6 + loss_sc
-#                 total_loss = (loss1 + loss2 + loss3 + loss4 + loss5 + loss6)/6 + loss_sc
-                total_loss = loss1 + loss_sc
+                total_loss = (loss1 + loss2 + loss3 + loss4 + loss5 + loss6)/6 + loss_sc
+                # total_loss = loss1 + loss_sc
 
                 ## Record loss for batch
 #                 val_loss += loss.item()
