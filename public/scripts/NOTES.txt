@@ -1,21 +1,6 @@
 
-1. Start from a pretrained model (model trained on 2 or 3 regions): DONE
-2. Acquisition function: how do they go from pixel to patch; do they take avg, min, max??? --> average (torch.mean())
-    --> start with full image and get its entropy
-    --> divide into rectangular regions
-    --> get average entropy of divided rectangular regions
-    --> select ones with highest entropy
 
-        1. our case we can try min first and then max apart from avg
-            --> min gives most uncertain 
-        2. penalize vast difference between orig and transformed versions
-        3. consider consistency in acquisition as well (Dr. Wang's idea)
-            --> recommend superpixels with highest self-consistency loss
-        4. try entropy too
-3. Loss function: DONE
-    1. Compute difference with the mean of all (don't take any arbitrary transformation): DONE
-
-4. Frontend
+1. Frontend
     1. Space key: hold color of superpixels during annotation : DONE
     2. Enter key: hold predicted labels: DONE
     3. OR relation between ticks and button press : DONE
@@ -29,12 +14,47 @@
         2. Correct mistake prediction during annotation : DONE
            --> this can be used as feedback to model in addition to recommended regions: DONE
     
-    6. Mask out forests should not be shown during recommemdation 
-        --> ban them from being annotated and don't include them in loss computation
-5. Backend
-    1. penalize corrected annotation from users if model still predicts the old labels
-6. Superpixels
+    6. Mask out forests should not be shown during recommemdation
+        --> for some superpixels, majority might be forest and only a few flood/dry ???
+            --> if we only show flood/dry it can be difficult to see on Frontend ???
+        --> ban them from being annotated: TODO
+        --> don't include them in loss computation: include propagated labels in loss computation
+
+2. Start from a pretrained model (model trained on 2 or 3 regions): DONE
+
+3. Loss function: DONE
+    1. Compute difference with the mean of all (don't take any arbitrary transformation): DONE
+    
+
+4. Acquisition function: how do they go from pixel to patch; do they take avg, min, max??? --> average (torch.mean())
+    --> start with full image and get its entropy
+    --> divide into rectangular regions
+    --> get average entropy of divided rectangular regions
+    --> select ones with highest entropy
+
+        1. our case we can try min first and then avg
+            --> min gives most uncertain 
+        2. consider consistency in acquisition as well
+            --> recommend superpixels with highest self-consistency loss
+        3. try entropy from EqAL paper: DONE
+
+5. Superpixels
 
 
-TODOs:
-1. do not recommend already labelled regions
+
+TODO:
+1. Split superpixels if partially annotated
+2. penalize corrected annotation from users if model still predicts the old labels: at the END
+3. ban forests from being annotated
+4. Remove functionalities related to topology based segmentation
+5. Remove logging feature
+6. Display metrics in each iteration when we get the prediction
+
+1. Save traingulation on disk and load from there
+2. Highlights holes in superpixels (obvious colors like light blue)
+3. 8 versions of self-consistency in acquisition --> use ticks on frontend to decide the configuration; configure URL as well
+ --> find combination of best later (CHECK RECORDING)
+4. Read paper by Dr. Wang
+5. Get forest model ready first: CHECK RECORDING
+6. Colormap for superpixel: Red -> White (2 extreme colors)
+7. Use propagated labels for retraining: DONE

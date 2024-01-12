@@ -546,6 +546,8 @@ async function pollBackendTask(taskId: string) {
 
 // saugat
 async function retrainSession(event: Event) {
+    event.stopPropagation();
+    
     // TODO: check what this does???
     // disposeUniform()
     console.log("Retrain session")
@@ -557,9 +559,9 @@ async function retrainSession(event: Event) {
     const dataURLFile = dataURItoBlob(dataURL);
     formData.append('image', dataURLFile);
 
-    // Send a POST request to the Flask backend
     const taskId = encodeURIComponent(sessionData.name);
 
+    // Send a POST request to the Flask backend
     showLoadingScreen();
     const response = await fetch(`http://127.0.0.1:5000/retrain?taskId=${taskId}`, {
         method: 'POST',
@@ -570,7 +572,69 @@ async function retrainSession(event: Event) {
     // Check if the task was successfully started
     if (data.status === 'success') {
         // Start polling the backend for task status
-        pollBackendTask(data.taskId);
+        // pollBackendTask(data.taskId);
+        
+
+        // Continue with other actions on the frontend
+        const superpixelBuffer = await fetch(`http://127.0.0.1:5000/superpixel?recommend=${0}`).then(response => response.arrayBuffer());
+        console.log("superpixelBuffer: ", superpixelBuffer)
+
+        // Convert ArrayBuffer to base64
+        const base64ImageSuperpixel = arrayBufferToBase64(superpixelBuffer)
+
+        // Create an Image element
+        const imgSuperpixel = new Image();
+
+        // Set the source of the Image to the base64-encoded PNG data
+        imgSuperpixel.src = 'data:image/png;base64,' + base64ImageSuperpixel;
+
+        await new Promise(resolve => {
+            imgSuperpixel.onload = resolve;
+        });
+
+        // Set canvas dimensions to match the image dimensions
+        superpixelCanvas.width = imgSuperpixel.width;
+        superpixelCanvas.height = imgSuperpixel.height;
+
+        console.log("height: ", superpixelCanvas.height)
+        console.log("width: ", superpixelCanvas.width)
+
+        // Draw the image on the canvas
+        superpixelContext!.drawImage(imgSuperpixel, 0, 0);
+        superpixelTexture.needsUpdate = true // saugat
+
+        const predBuffer = await fetch('http://127.0.0.1:5000/pred').then(response => response.arrayBuffer());
+        console.log("arraybuffer: ", predBuffer)
+
+        // Convert ArrayBuffer to base64
+        const base64ImagePred = arrayBufferToBase64(predBuffer)
+
+        // Create an Image element
+        const imgPred = new Image();
+
+        // Set the source of the Image to the base64-encoded PNG data
+        imgPred.src = 'data:image/png;base64,' + base64ImagePred;
+
+        // Wait for the image to load
+        imgPred.onload = () => {
+
+            // Set canvas dimensions to match the image dimensions
+            predCanvas.width = imgPred.width;
+            predCanvas.height = imgPred.height;
+
+            console.log("height: ", predCanvas.height)
+            console.log("width: ", predCanvas.width)
+
+            // Draw the image on the canvas
+            predContext!.drawImage(imgPred, 0, 0);
+            predictionTexture.needsUpdate = true // saugat
+        };
+
+        ;(document.getElementById('exploration') as HTMLElement).style.display = 'block'
+        ;(document.getElementById('loaderSide') as HTMLElement).style.display = 'none'
+        // ;(document.getElementById('loaderTrain') as HTMLElement).style.display = 'none'
+        ;(document.getElementById('modal-wrapper') as HTMLElement).style.display = 'none'
+
     } else {
         // Handle the case where the task couldn't be started
         console.error('Failed to start backend task');
