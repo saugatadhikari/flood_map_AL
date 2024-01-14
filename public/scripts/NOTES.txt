@@ -43,18 +43,23 @@
 
 
 TODO:
-1. Split superpixels if partially annotated
-2. penalize corrected annotation from users if model still predicts the old labels: at the END
-3. ban forests from being annotated
-4. Remove functionalities related to topology based segmentation
-5. Remove logging feature
-6. Display metrics in each iteration when we get the prediction
+1. Remove functionalities related to topology based segmentation: DONE
+2. Remove logging feature: DONE
+3. Use propagated labels for retraining: DONE
+4. Save traingulation on disk and load from there: DONE
+    TODO: check whether it is network issue for slow down???
+5. Colormap for superpixel: Red -> White (2 extreme colors): DONE
+6. Highlights holes in superpixels (obvious colors like light blue): DONE
+   --> if superpixel is recommemded but majority are forests, highlight non-forest with blue color: DONE
+7. Display metrics in each iteration when we get the prediction: DONE
 
-1. Save traingulation on disk and load from there
-2. Highlights holes in superpixels (obvious colors like light blue)
-3. 8 versions of self-consistency in acquisition --> use ticks on frontend to decide the configuration; configure URL as well
+8. ban forests from being annotated 
+    --> show cross mark: PARTIALLY DONE
+
+9. 8 versions of self-consistency in acquisition --> use ticks on frontend to decide the configuration; configure URL as well
  --> find combination of best later (CHECK RECORDING)
-4. Read paper by Dr. Wang
-5. Get forest model ready first: CHECK RECORDING
-6. Colormap for superpixel: Red -> White (2 extreme colors)
-7. Use propagated labels for retraining: DONE
+10. Get forest model ready first: CHECK RECORDING
+11. Read paper by Dr. Wang
+ 
+12. Split superpixels if partially annotated
+13. penalize corrected annotation from users if model still predicts the old labels: at the END

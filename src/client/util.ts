@@ -454,6 +454,7 @@ function showLoadingScreen(){
     ;(document.getElementById('loaderSide') as HTMLElement).style.display = 'block'
     // ;(document.getElementById('loaderTrain') as HTMLElement).style.display = 'block'
     ;(document.getElementById('modal-wrapper') as HTMLElement).style.display = 'none'
+    ;(document.getElementById('metrices') as HTMLElement).style.display = 'none'
 }
 
 function hideLoadingScreen(){
@@ -467,7 +468,7 @@ async function pollBackendTask(taskId: string) {
     const response = await fetch(`http://127.0.0.1:5000/check-status?taskId=${taskId}`);
     const data = await response.json();
 
-    console.log("data: ", data)
+    // console.log("data: ", data)
   
     if (data.status === 'completed') {
         // Backend task is completed, handle the response
@@ -478,7 +479,7 @@ async function pollBackendTask(taskId: string) {
   
         // Continue with other actions on the frontend
         const superpixelBuffer = await fetch(`http://127.0.0.1:5000/superpixel?recommend=${0}`).then(response => response.arrayBuffer());
-        console.log("superpixelBuffer: ", superpixelBuffer)
+        // console.log("superpixelBuffer: ", superpixelBuffer)
 
         // Convert ArrayBuffer to base64
         const base64ImageSuperpixel = arrayBufferToBase64(superpixelBuffer)
@@ -497,15 +498,15 @@ async function pollBackendTask(taskId: string) {
         superpixelCanvas.width = imgSuperpixel.width;
         superpixelCanvas.height = imgSuperpixel.height;
 
-        console.log("height: ", superpixelCanvas.height)
-        console.log("width: ", superpixelCanvas.width)
+        // console.log("height: ", superpixelCanvas.height)
+        // console.log("width: ", superpixelCanvas.width)
 
         // Draw the image on the canvas
         superpixelContext!.drawImage(imgSuperpixel, 0, 0);
         superpixelTexture.needsUpdate = true // saugat
 
         const predBuffer = await fetch('http://127.0.0.1:5000/pred').then(response => response.arrayBuffer());
-        console.log("arraybuffer: ", predBuffer)
+        // console.log("arraybuffer: ", predBuffer)
 
         // Convert ArrayBuffer to base64
         const base64ImagePred = arrayBufferToBase64(predBuffer)
@@ -523,8 +524,8 @@ async function pollBackendTask(taskId: string) {
             predCanvas.width = imgPred.width;
             predCanvas.height = imgPred.height;
 
-            console.log("height: ", predCanvas.height)
-            console.log("width: ", predCanvas.width)
+            // console.log("height: ", predCanvas.height)
+            // console.log("width: ", predCanvas.width)
 
             // Draw the image on the canvas
             predContext!.drawImage(imgPred, 0, 0);
@@ -577,7 +578,7 @@ async function retrainSession(event: Event) {
 
         // Continue with other actions on the frontend
         const superpixelBuffer = await fetch(`http://127.0.0.1:5000/superpixel?recommend=${0}`).then(response => response.arrayBuffer());
-        console.log("superpixelBuffer: ", superpixelBuffer)
+        // console.log("superpixelBuffer: ", superpixelBuffer)
 
         // Convert ArrayBuffer to base64
         const base64ImageSuperpixel = arrayBufferToBase64(superpixelBuffer)
@@ -596,15 +597,19 @@ async function retrainSession(event: Event) {
         superpixelCanvas.width = imgSuperpixel.width;
         superpixelCanvas.height = imgSuperpixel.height;
 
-        console.log("height: ", superpixelCanvas.height)
-        console.log("width: ", superpixelCanvas.width)
+        // console.log("height: ", superpixelCanvas.height)
+        // console.log("width: ", superpixelCanvas.width)
 
         // Draw the image on the canvas
         superpixelContext!.drawImage(imgSuperpixel, 0, 0);
         superpixelTexture.needsUpdate = true // saugat
 
+        const metrices_response = await fetch(`http://127.0.0.1:5000/metrics-json`);
+        const metrices = await metrices_response.json();
+        console.log("metrices: ", metrices)
+
         const predBuffer = await fetch('http://127.0.0.1:5000/pred').then(response => response.arrayBuffer());
-        console.log("arraybuffer: ", predBuffer)
+        // console.log("arraybuffer: ", predBuffer)
 
         // Convert ArrayBuffer to base64
         const base64ImagePred = arrayBufferToBase64(predBuffer)
@@ -622,13 +627,37 @@ async function retrainSession(event: Event) {
             predCanvas.width = imgPred.width;
             predCanvas.height = imgPred.height;
 
-            console.log("height: ", predCanvas.height)
-            console.log("width: ", predCanvas.width)
+            // console.log("height: ", predCanvas.height)
+            // console.log("width: ", predCanvas.width)
 
             // Draw the image on the canvas
             predContext!.drawImage(imgPred, 0, 0);
             predictionTexture.needsUpdate = true // saugat
         };
+
+        // Get the container element
+        const jsonContainer = document.getElementById('metrices');
+                            
+        if (jsonContainer){
+            console.log('jsonContainer found.');
+            // Create a <pre> element to display formatted JSON
+            const preElement = document.createElement('pre');
+
+            // Convert JSON object to a string with indentation
+            const jsonString = JSON.stringify(metrices, null, 2);
+            const jsonStringWithoutBraces = jsonString.slice(1, -1);
+
+            // Set the content of the <pre> element to the formatted JSON string
+            preElement.textContent = jsonStringWithoutBraces;
+
+            // Append the <pre> element to the container
+            jsonContainer.innerHTML = '';
+            jsonContainer.appendChild(preElement);
+
+            ;(document.getElementById('metrices') as HTMLElement).style.display = 'block'
+        } else {
+            console.log('jsonContainer not found.');
+        }
 
         ;(document.getElementById('exploration') as HTMLElement).style.display = 'block'
         ;(document.getElementById('loaderSide') as HTMLElement).style.display = 'none'

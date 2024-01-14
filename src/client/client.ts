@@ -75,6 +75,9 @@ interface PixelDict {
 const pixelDict: PixelDict = {};
 var confidenceJSON: PixelDict
 
+var metrices: any
+var forestJson: any
+
 let host = ''
 if (location.hostname === 'localhost' || location.hostname === '127.0.0.1' || location.hostname === '172.28.200.135') {
     host = ''
@@ -225,6 +228,7 @@ var segsMax: { [key: number]: number } = {}
 
 ;(document.getElementById('loader') as HTMLElement).style.display = 'none'
 ;(document.getElementById('loaderSide') as HTMLElement).style.display = 'none'
+;(document.getElementById('metrices') as HTMLElement).style.display = 'none'
 // ;(document.getElementById('loaderTrain') as HTMLElement).style.display = 'none'
 ;(document.getElementById('modal-wrapper') as HTMLElement).style.display = 'block'
 persLoader.load(
@@ -366,16 +370,7 @@ if (metaState.flat == 0) {
         })
         .name('3D View')
 }
-viewFolder
-.add(params, 'data')
-.onChange(() => {
-    if (params.data) {
-        uniforms.data.value = 1
-    } else {
-        uniforms.data.value = 0
-    }
-})
-.name('Color by Data')
+
 viewFolder
     .add(params, 'annotation')
     .onChange(() => {
@@ -422,31 +417,9 @@ viewFolder
         uniforms.confidence.value = 0
     }
 })
-.name('Show Confidence Map')
+.name('Show Forest Prediction')
 //saugat
 
-if (metaState.segEnabled) {
-    viewFolder
-        .add(params, 'pers', 1, 6, 1)
-        .onFinishChange(() => {
-            persVal = persIndex[params.pers]
-            uniforms.persTexture.value = persTextures[persVal]
-            uniforms.segsMax.value = segsMax[persVal]
-            uniforms.dataTexture.value = dataTextures[persVal]
-        })
-        .name('Simplification Level')
-    viewFolder
-        .add(params, 'persShow')
-        .onChange(() => {
-            if (params.persShow) {
-                uniforms.persShow.value = 1
-            } else {
-                uniforms.persShow.value = 0
-            }
-        })
-        .name('Show Segmentations')
-}
-// viewFolder.add(params, 'brushSize', 1, 50, 1)
 
 let sizeMap = {
     brushSize: {
@@ -820,7 +793,7 @@ function BFSHandler(x: number, y: number, flood: boolean, clear: boolean) {
         color = 'clear'
     }
     BFS(x, y, type, color)
-    logMyState('f', 'BFS', flood, clear, camera, pointer, x, y, undefined, undefined, time)
+    // logMyState('f', 'BFS', flood, clear, camera, pointer, x, y, undefined, undefined, time)
 }
 
 function brushHandler(key: string, x: number, y: number, flood: boolean, clear: boolean) {
@@ -847,9 +820,9 @@ function brushHandler(key: string, x: number, y: number, flood: boolean, clear: 
         sessionData.annotatedPixelCount += params.brushSize * params.brushSize
     }
     annotationTexture.needsUpdate = true
-    // predictionTexture.needsUpdate = true // saugat
+
     // uniforms.annotationTexture.value = annotationTexture
-    logMyState(key, 'brush', flood, clear, camera, pointer, x, y, params.brushSize, undefined, time)
+    // logMyState(key, 'brush', flood, clear, camera, pointer, x, y, params.brushSize, undefined, time)
 }
 
 function brushLineHandler(linePixels: Array<number>, flood: boolean, clear: boolean) {
@@ -879,19 +852,19 @@ function brushLineHandler(linePixels: Array<number>, flood: boolean, clear: bool
     }
     annotationTexture.needsUpdate = true
     // predictionTexture.needsUpdate = true // saugat
-    logMyState(
-        't',
-        'brushLine',
-        flood,
-        clear,
-        camera,
-        undefined,
-        undefined,
-        undefined,
-        params.brushSize,
-        linePixels,
-        time
-    )
+    // logMyState(
+    //     't',
+    //     'brushLine',
+    //     flood,
+    //     clear,
+    //     camera,
+    //     undefined,
+    //     undefined,
+    //     undefined,
+    //     params.brushSize,
+    //     linePixels,
+    //     time
+    // )
 }
 
 function polygonSelectionHandler(x: number, y: number, flood: boolean, clear: boolean) {
@@ -910,19 +883,19 @@ function polygonSelectionHandler(x: number, y: number, flood: boolean, clear: bo
         context!.fillRect(x - 2, y - 2, 4, 4)
         sessionData.annotatedPixelCount += 16 //follow this with the line selection to minimize the double counting
     }
-    logMyState(
-        'p',
-        'polygonSelector',
-        flood,
-        clear,
-        camera,
-        pointer,
-        x,
-        y,
-        params.brushSize,
-        undefined,
-        time
-    )
+    // logMyState(
+    //     'p',
+    //     'polygonSelector',
+    //     flood,
+    //     clear,
+    //     camera,
+    //     pointer,
+    //     x,
+    //     y,
+    //     params.brushSize,
+    //     undefined,
+    //     time
+    // )
     annotationTexture.needsUpdate = true
 }
 
@@ -1024,19 +997,19 @@ function polygonFillHandler(flood: boolean, clear: boolean, linePoints?: Array<n
     for (var i = 0; i < linePixels.length; i += 2) {
         BFS(linePixels[i], linePixels[i + 1], type, color)
     }
-    logMyState(
-        'o',
-        'polygonFill',
-        flood,
-        clear,
-        camera,
-        undefined,
-        undefined,
-        undefined,
-        undefined,
-        polyPoints,
-        time
-    )
+    // logMyState(
+    //     'o',
+    //     'polygonFill',
+    //     flood,
+    //     clear,
+    //     camera,
+    //     undefined,
+    //     undefined,
+    //     undefined,
+    //     undefined,
+    //     polyPoints,
+    //     time
+    // )
     polyPoints = []
     annotationTexture.needsUpdate = true
     // predictionTexture.needsUpdate = true // saugat
@@ -1053,7 +1026,7 @@ function segAnnotationHandler(key: string, x: number, y: number, flood: boolean,
     }
     context!.fillStyle = color
     segSelect(x, y, color)
-    logMyState(key, 'segmentation', flood, clear, camera, pointer, x, y, undefined, undefined, time)
+    // logMyState(key, 'segmentation', flood, clear, camera, pointer, x, y, undefined, undefined, time)
 }
 
 function connectedSegAnnotationHandler(
@@ -1065,19 +1038,55 @@ function connectedSegAnnotationHandler(
 ) {
     sessionData.numberofClick++
     connectedSegSelect(x, y, flood, clear)
-    logMyState(
-        key,
-        'connectedSegmentation',
-        flood,
-        clear,
-        camera,
-        pointer,
-        x,
-        y,
-        undefined,
-        undefined,
-        time
-    )
+    // logMyState(
+    //     key,
+    //     'connectedSegmentation',
+    //     flood,
+    //     clear,
+    //     camera,
+    //     pointer,
+    //     x,
+    //     y,
+    //     undefined,
+    //     undefined,
+    //     time
+    // )
+}
+
+// Function to display the cross mark
+const crossContainer = document.getElementById('crossContainer');
+function displayCrossMark(x: any, y: any) {
+
+    if (crossContainer){
+        // Create a div for the cross mark
+        // const crossMark = document.createElement('div');
+        // crossMark.className = 'crossMark';
+
+        // // Position the cross mark at the clicked coordinates
+        // crossMark.style.left = `${x}px`;
+        // crossMark.style.top = `${y}px`;
+
+        // console.log("inside crossmark")
+
+        const preElement = document.createElement('pre');
+
+        preElement.style.left = `${x}px`;
+        preElement.style.top = `${y}px`;
+
+        // Convert JSON object to a string with indentation
+        const jsonString = "X";
+
+        // Set the content of the <pre> element to the formatted JSON string
+        preElement.textContent = jsonString;
+
+        // Append the cross mark to the container
+        crossContainer.innerHTML = ''; // Clear previous marks
+        crossContainer.appendChild(preElement);
+
+        ;(document.getElementById('crossContainer') as HTMLElement).style.display = 'block'
+    } else {
+        console.log('crossContainer not found.');
+    }
 }
 
 let [lastX, lastY] = [0, 0]
@@ -1121,24 +1130,25 @@ const onKeyPress = (event: KeyboardEvent) => {
     } else if (event.key == 'g' && metaState.segEnabled) {
         hoverHandler()
     } else if (event.key == 'f' && metaState.BFS) {
-        let [x, y] = performRayCasting()
-        // console.log("x: ", x)
-        // console.log("y1: ", y)
+        let [x, y_orig] = performRayCasting()
 
-        y = regionDimensions[1] - 1 - y
-        // console.log("y2: ", y)
-        BFSHandler(x, y, params.flood, params.clear)
-
-        // const pixelIndex = y * regionDimensions[1] + x
-        // const pixelVal = confidenceJSON[pixelIndex]
-        
-        // console.log("pixelVal: ", pixelVal)f
-        // if (pixelVal == 0){
-        //     y = regionDimensions[1] - 1 - y
-        //     BFSHandler(x, y, params.flood, params.clear)
-        // }
-        // y = regionDimensions[1] - 1 - y
+        let y: any = regionDimensions[1] - 1 - y_orig // y is height, x is width
         // BFSHandler(x, y, params.flood, params.clear)
+
+        const pixelIndex = y * regionDimensions[0] + x
+        const pixelVal = forestJson[pixelIndex]
+        
+        // console.log("pixelVal: ", pixelVal)
+        if (pixelVal == 0){
+            // y = regionDimensions[1] - 1 - y
+            BFSHandler(x, y, params.flood, params.clear)
+            ;(document.getElementById('crossContainer') as HTMLElement).style.display = 'none'
+        }
+        else{
+            const clickX = x
+            const clickY = y_orig;
+            displayCrossMark(clickX, clickY);
+        }
     } else if (event.key == 't' && metaState.brushSelection) {
         let [x, y] = performRayCasting()
         if (
@@ -1226,7 +1236,14 @@ const onKeyPress = (event: KeyboardEvent) => {
             )
         ) {
             // y = regionDimensions[1] - y
-            polygonSelectionHandler(x, y, params.flood, params.clear)
+
+            const pixelIndex = y * regionDimensions[0] + x
+            const pixelVal = forestJson[pixelIndex]
+            
+            if (pixelVal == 0){
+                polygonSelectionHandler(x, y, params.flood, params.clear)
+            }
+            // polygonSelectionHandler(x, y, params.flood, params.clear)
         }
     } else if (event.key == 'o' && metaState.polygonSelection) {
         polygonFillHandler(params.flood, params.clear)
@@ -1377,7 +1394,7 @@ var texContext : CanvasRenderingContext2D
 
                                 // // Process the JSON data (replace this part with your specific logic)
                                 // console.log('JSON Data:', jsonData)
-
+                                
                                 const superpixelBuffer = await fetch(`http://127.0.0.1:5000/superpixel?recommend=${1}`).then(response => response.arrayBuffer());
                                 console.log("superpixelBuffer: ", superpixelBuffer)
 
@@ -1404,6 +1421,11 @@ var texContext : CanvasRenderingContext2D
                                 // Draw the image on the canvas
                                 superpixelContext!.drawImage(imgSuperpixel, 0, 0);
                                 superpixelTexture.needsUpdate = true // saugat
+
+                                const metrices_response = await fetch(`http://127.0.0.1:5000/metrics-json`);
+                                metrices = await metrices_response.json();
+                                console.log("metrices: ", metrices)
+
 
                                 const predBuffer = await fetch('http://127.0.0.1:5000/pred').then(response => response.arrayBuffer());
                                 console.log("arraybuffer: ", predBuffer)
@@ -1435,9 +1457,10 @@ var texContext : CanvasRenderingContext2D
                                     // document.body.appendChild(predCanvas);
                                 };
                                 
-                                // const confidenceResponse = await fetch('http://127.0.0.1:5000/confidence');
-                                // const confidenceBuffer = confidenceResponse.arrayBuffer();
-                                // const confidenceJson = confidenceResponse.json();
+                                const forestResponse = await fetch('http://127.0.0.1:5000/forest-json');
+                                forestJson = await forestResponse.json();
+                                console.log("forestJson: ", forestJson)
+
                                 const confidenceBuffer = await fetch('http://127.0.0.1:5000/confidence').then(response => response.arrayBuffer());
                                 console.log("confidenceBuffer: ", confidenceBuffer)
 
@@ -1489,6 +1512,32 @@ var texContext : CanvasRenderingContext2D
                             } catch (e) {
                                 console.error(`error on reading STL file a.stl`)
                             }                
+
+                            // Get the container element
+                            const jsonContainer = document.getElementById('metrices');
+                            
+                            if (jsonContainer){
+                                console.log('jsonContainer found.');
+                                // Create a <pre> element to display formatted JSON
+                                const preElement = document.createElement('pre');
+
+                                // Convert JSON object to a string with indentation
+                                const jsonString = JSON.stringify(metrices, null, 2);
+                                const jsonStringWithoutBraces = jsonString.slice(1, -1);
+
+                                // Set the content of the <pre> element to the formatted JSON string
+                                preElement.textContent = jsonStringWithoutBraces;
+
+                                // Append the <pre> element to the container
+                                jsonContainer.innerHTML = '';
+                                jsonContainer.appendChild(preElement);
+                                
+
+                                ;(document.getElementById('metrices') as HTMLElement).style.display = 'block'
+                            } else {
+                                console.log('jsonContainer not found.');
+                            }
+
                             ;(document.getElementById('loader') as HTMLElement).style.display = 'none'
                             ;(document.getElementById('modal-wrapper') as HTMLElement).style.display = 'block'
                         },

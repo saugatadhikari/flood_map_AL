@@ -164,4 +164,8 @@ cython_debug/
 *.tif
 *.tiff
 *.png
+*.ckpt
+
+*_forest_json.json
+*_Metrics.json
 

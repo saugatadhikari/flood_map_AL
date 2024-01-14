@@ -2,6 +2,8 @@ import torch
 from torch.optim import Adam, SGD
 import time
 import asyncio
+import copy
+import json
 
 import numpy as np
 
@@ -716,20 +718,20 @@ def label_acquisition(selected_superpixels, elev_data, gt_labels, current_labels
     
     return updated_labels
 
-def select_superpixels(total_superpixels, superpixel_scores, rejection_superpixels):
+def select_superpixels(total_superpixels, superpixel_scores, forest_superpixels):
     max_items = min(config.NUM_RECOMMEND, total_superpixels)
     select_count = 0
     selected_superpixels = []
     for i, (sid, prob_score) in enumerate(superpixel_scores.items()):
         is_labeled = labeled_superpixels.get(sid, False)
-        is_reject = rejection_superpixels.get(sid, False)
-        if not is_labeled and not is_reject:
+        is_forest = forest_superpixels.get(sid, False)
+        if not is_labeled and not is_forest:
             if select_count < max_items:
                 selected_superpixels.append(sid)
                 labeled_superpixels[sid] = True
                 select_count += 1
     
-    return selected_superpixels, max_items
+    return selected_superpixels, select_count
 
 class EarlyStopping:
 	"""
@@ -769,7 +771,7 @@ def convert_to_rgb(input_array):
     input_array = np.clip(input_array, 0, 1)
 
     # Create a colormap from blue to red
-    cmap = plt.get_cmap('RdYlGn')
+    cmap = plt.get_cmap('Reds')
 
     # Apply the colormap to the input array
     rgb_image = cmap(input_array)
@@ -782,16 +784,16 @@ def convert_to_rgb(input_array):
 
 
 def recommend_superpixels(TEST_REGION):
-    # return # TODO: remove after test
+    return # TODO: remove after test
 
     start = time.time()
     DATASET_PATH = "./data_al/repo/Features_7_Channels"
 
     superpixels = np.load(f"./data_al/superpixels/Region_{TEST_REGION}/Region_{TEST_REGION}_superpixels.npy") # TODO: make is a global variable or store in cache
-    rejection = np.load(f"./data_al/rejection/Region_{TEST_REGION}_rejection.npy") # TODO: make is a global variable or store in cache
+    forest = np.load(f"./data_al/forest/Region_{TEST_REGION}_forest.npy") # TODO: make is a global variable or store in cache
 
     superpixels_group = defaultdict(list)
-    rejection_superpixels = {}
+    forest_superpixels = {}
 
     # Iterate through the NumPy array to group pixels
     height = superpixels.shape[0]
@@ -800,20 +802,33 @@ def recommend_superpixels(TEST_REGION):
         for j in range(width):
             pixel_value = superpixels[i][j]
             superpixels_group[pixel_value].append((i, j))
-            
-    for sid, pixels in superpixels_group.items():
-        reject_count = 0
-        total_pixels = len(pixels)
-        for (row, col) in pixels:
-            is_reject = rejection[row][col]
-            if is_reject:
-                reject_count += 1
 
-        reject_fraction = int(reject_count / total_pixels)
-        if reject_fraction == 1:
-            rejection_superpixels[sid] = True
+    accepted_sub_pixels = np.zeros((height, width), dtype='int')
+        
+    for sid, pixels in superpixels_group.items():
+        forest_count = 0
+        total_pixels = len(pixels)
+
+        accepted_pixels = []
+        for (row, col) in pixels:
+            is_forest = forest[row][col]
+            if is_forest:
+                forest_count += 1
+            else:
+                accepted_pixels.append((row, col))
+
+        forest_fraction = forest_count / total_pixels
+        if forest_fraction == 1.0:
+            forest_superpixels[sid] = True
         else:
-            rejection_superpixels[sid] = False
+            forest_superpixels[sid] = False
+
+        if forest_fraction >= 0.8 and forest_fraction < 1.0:
+            accepted_pixels_np = np.array(accepted_pixels)
+            accepted_sub_pixels[accepted_pixels_np[:, 0], accepted_pixels_np[:, 1]] = 1
+
+
+    print("SUM: ", np.sum(accepted_sub_pixels))
 
     # read resume epoch from text file if exists
     try:
@@ -872,7 +887,7 @@ def recommend_superpixels(TEST_REGION):
     
         # sort by prob score in ascending order; most uncertain superpixel first (whichever is close to 0.5)
         superpixel_scores = dict(sorted(superpixel_scores.items(), key=lambda item: item[1]), reverse=True)
-        selected_superpixels, max_items = select_superpixels(total_superpixels, superpixel_scores, rejection_superpixels)
+        selected_superpixels, max_items = select_superpixels(total_superpixels, superpixel_scores, forest_superpixels)
     elif config.SC_ENTROPY:
         pred_patches_dict, entropy_patches_dict = run_pred_al_entropy(model, test_loader)
         _, entropy_stitched = stitch_patches(entropy_patches_dict, TEST_REGION)
@@ -883,7 +898,7 @@ def recommend_superpixels(TEST_REGION):
     
         # sort by prob score in ascending order; most uncertain superpixel first (whichever is close to 0.5)
         superpixel_scores = dict(sorted(superpixel_scores.items(), key=lambda item: item[1]), reverse=True)
-        selected_superpixels, max_items = select_superpixels(total_superpixels, superpixel_scores, rejection_superpixels)
+        selected_superpixels, max_items = select_superpixels(total_superpixels, superpixel_scores, forest_superpixels)
     elif config.SC_MIN:
         pred_patches_dict, min_pred_patches_dict = run_pred_al_min(model, test_loader)
         _, pred_stitched = stitch_patches(min_pred_patches_dict, TEST_REGION)
@@ -894,7 +909,7 @@ def recommend_superpixels(TEST_REGION):
     
         # sort by prob score in ascending order; most uncertain superpixel first (whichever is close to 0.5)
         superpixel_scores = dict(sorted(superpixel_scores.items(), key=lambda item: item[1]))
-        selected_superpixels, max_items = select_superpixels(total_superpixels, superpixel_scores, rejection_superpixels)
+        selected_superpixels, max_items = select_superpixels(total_superpixels, superpixel_scores, forest_superpixels)
     else:
         pred_patches_dict, avg_pred_patches_dict = run_pred_al(model, test_loader)
         rgb_stitched, pred_stitched = stitch_patches(avg_pred_patches_dict, TEST_REGION)
@@ -905,13 +920,21 @@ def recommend_superpixels(TEST_REGION):
     
         # sort by prob score in ascending order; most uncertain superpixel first (whichever is close to 0.5)
         superpixel_scores = dict(sorted(superpixel_scores.items(), key=lambda item: item[1]))
-        selected_superpixels, max_items = select_superpixels(total_superpixels, superpixel_scores, rejection_superpixels)
+        selected_superpixels, max_items = select_superpixels(total_superpixels, superpixel_scores, forest_superpixels)
 
 
     ## Stitch pred patches back together
     _, pred_stitched_2 = stitch_patches(pred_patches_dict, TEST_REGION)
     pred_unpadded_2 = center_crop(pred_stitched_2, height, width, image = False)
     pred_final = 1 - np.argmax(pred_unpadded_2, axis=-1)
+
+    gt_labels = np.load(f"./data_al/repo/groundTruths/Region_{TEST_REGION}_GT_Labels.npy")
+    metrices = elev_eval.run_eval(pred_final, gt_labels)
+
+    file_path = "./Region_1_Metrics.json"
+    with open(file_path, "w") as json_file:
+        json.dump(metrices, json_file, indent=4)
+
     
     # get the superpixels to be recommended in this iteration and save as png
     # interval = (139 - 25) / (max_items - 1)
@@ -921,13 +944,23 @@ def recommend_superpixels(TEST_REGION):
     for i, sid in enumerate(selected_superpixels):
         pixels = superpixels_group[sid]
         # slot_val = int(139 - i * interval)
-        recommended_superpixels[tuple(zip(*pixels))] = slot_values[i]
+        # recommended_superpixels[tuple(zip(*pixels))] = slot_values[i]
+        recommended_superpixels[tuple(zip(*pixels))] = slot_values[max_items - i - 1]
     
     mask = np.where(recommended_superpixels > 0, 1, 0)
+    mask_blue = np.where((accepted_sub_pixels == 1) & (recommended_superpixels > 0))
+    # mask_blue = mask_blue * mask
     mask = np.expand_dims(mask, axis=-1)
     recommended_superpixels = recommended_superpixels.astype('float32')
     result_array = convert_to_rgb(recommended_superpixels)
     result_array = result_array * mask
+
+    # accepted_sub_pixels = np.expand_dims(accepted_sub_pixels, axis=-1)
+    # result_array = result_array * accepted_sub_pixels
+    # mask_blue = np.where(accepted_sub_pixels == 1)
+    result_array[mask_blue] = [0.0, 0.0, 1.0]
+
+    print(result_array.shape)
     plt.imsave('./R1_superpixels_test.png', result_array)
 
     # save current prediction as png
@@ -941,7 +974,7 @@ def recommend_superpixels(TEST_REGION):
     pim = Image.fromarray(pred_labels)
     pim.convert('RGB').save("./R1_pred_test.png")
 
-    return
+    return metrices
 
 
 def ann_to_labels(png_image, TEST_REGION):
@@ -956,8 +989,8 @@ def ann_to_labels(png_image, TEST_REGION):
 
     final_arr = flood_arr + dry_arr
 
-    # rejection = np.load(f"./data_al/rejection/Region_{TEST_REGION}_rejection.npy") # TODO
-    # accept_mask = np.where(rejection == 0, 1, 0)
+    # forest = np.load(f"./data_al/forest/Region_{TEST_REGION}_forest.npy") # TODO
+    # accept_mask = np.where(forest == 0, 1, 0)
     # final_arr = final_arr * accept_mask
     
     return final_arr
@@ -965,8 +998,8 @@ def ann_to_labels(png_image, TEST_REGION):
 
 def train(TEST_REGION):
     print("Retraining the Model with new labels")
-#     time.sleep(30)
-#     return # TODO: remove after test
+    time.sleep(5)
+    return # TODO: remove after test
 
 
     model = EvaNet(config.BATCH_SIZE, config.IN_CHANNEL, config.N_CLASSES, ultrasmall = True).to(DEVICE)

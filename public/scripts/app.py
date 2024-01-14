@@ -77,11 +77,26 @@ def superpixel():
     recommend = request.args.get('recommend')
 
     TEST_REGION = 1 # TODO: this should be received from frontend
+    metrices = {}
     if int(recommend):
-        recommend_superpixels(TEST_REGION)
+        metrices = recommend_superpixels(TEST_REGION)
     
     payload = make_response(send_file('R1_superpixels_test.png'))
     payload.headers.add('Access-Control-Allow-Origin', '*')
+
+    # # Create a response with the file and JSON data
+    # payload = make_response()
+
+    # # Set the file part of the response
+    # file_path = 'R1_superpixels_test.png'
+    # payload.headers['Content-Disposition'] = f'attachment; filename={file_path}'
+    # payload.headers['Content-Type'] = 'text/plain'
+    # payload.headers.add('Access-Control-Allow-Origin', '*')
+    # payload.set_data(open(file_path, 'rb').read())
+
+    # # Attach JSON data to the response
+    # payload.json = metrices
+
     return payload
 
 
@@ -108,17 +123,44 @@ def confidence():
 
     return payload
 
-@app.route('/confidence_json', methods=['GET'])
-def confidence_json():
-    forest_arr = cv2.imread('R1_forest.png')
-    list_data = forest_arr.tolist()
-    json_data = {}
-    for i in range(forest_arr.shape[0]):
-        for j in range(forest_arr.shape[1]):
-            index = i * forest_arr.shape[1] + j
-            json_data[index] = list_data[i][j][1]
+@app.route('/forest-json', methods=['GET'])
+def forest_json():
+    TEST_REGION = 1
+    file_path = f"./data_al/forest/Region_{TEST_REGION}_forest_json.json"
 
-    payload = make_response(jsonify(json_data), 200)
+    forests = {}
+    with open(file_path, 'r') as json_file:
+        forests = json.load(json_file)
+
+    payload = make_response(jsonify(forests), 200)
+    # payload.json = json_data
+    payload.headers.add('Access-Control-Allow-Origin', '*')
+
+
+    # forest_arr = cv2.imread('R1_forest.png')
+    # list_data = forest_arr.tolist()
+    # json_data = {}
+    # for i in range(forest_arr.shape[0]):
+    #     for j in range(forest_arr.shape[1]):
+    #         index = i * forest_arr.shape[1] + j
+    #         json_data[index] = list_data[i][j][1]
+
+    # payload = make_response(jsonify(json_data), 200)
+    # # payload.json = json_data
+    # payload.headers.add('Access-Control-Allow-Origin', '*')
+
+    return payload
+
+@app.route('/metrics-json', methods=['GET'])
+def metrics_json():
+    TEST_REGION = 1
+    file_path = f"./Region_{TEST_REGION}_Metrics.json"
+
+    metrices = {}
+    with open(file_path, 'r') as json_file:
+        metrices = json.load(json_file)
+
+    payload = make_response(jsonify(metrices), 200)
     # payload.json = json_data
     payload.headers.add('Access-Control-Allow-Origin', '*')
 

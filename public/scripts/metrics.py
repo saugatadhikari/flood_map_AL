@@ -64,6 +64,19 @@ class Evaluator():
         self.FLOOD_FSCORE = ((2*self.FLOOD_PRECISION*self.FLOOD_RECALL)/(self.FLOOD_PRECISION+self.FLOOD_RECALL))
         print("Flood F-score: ", self.FLOOD_FSCORE)
 
+        metrices = {
+            "Dry Accuracy": float("{:.2f}".format(self.DRY_ACC)),
+            "Dry Precision": float("{:.2f}".format(self.DRY_PRECISION)),
+            "Dry Recall": float("{:.2f}".format(self.DRY_RECALL)),
+            "Dry F-score": float("{:.2f}".format(self.DRY_FSCORE)),
+            "Flood Accuracy": float("{:.2f}".format(self.FLOOD_ACC)),
+            "Flood Precision": float("{:.2f}".format(self.FLOOD_PRECISION)),
+            "Flood Recall": float("{:.2f}".format(self.FLOOD_RECALL)),
+            "Flood F-score": float("{:.2f}".format(self.FLOOD_FSCORE)),
+        }
+
+        return metrices
+
         
     
     
