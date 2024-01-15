@@ -300,6 +300,12 @@ var params = {
     confidence: false, // saugat
     predictionKey: 0, // saugat
     superpixelKey: 0, // saugat
+    entropy: false,
+    probability: true,
+    avgTransformation: true,
+    minTransformation: false,
+    avgSuperpixel: true,
+    minSuperpixel: false,
 }
 let persIndex: { [key: number]: number } = {
     1: 0.32,
@@ -337,8 +343,17 @@ var uniforms = {
     dry: { type: 'bool', value: params.dry },
     flood: { type: 'bool', value: params.flood },
     quadrant: { value: metaState.quadrant },
+    entropy: { value: 0 },
+    probability: { value: 1 },
+    avgTransformation: {value: 1},
+    minTransformation: {value: 0},
+    avgSuperpixel: {value: 1},
+    minSuperpixel: {value: 0},
 }
 const viewFolder = gui.addFolder('Settings')
+const scFolder = gui.addFolder('Self Consistency Method')
+const transformationFolder = gui.addFolder('Transformation Aggregation')
+const superpixelFolder = gui.addFolder('Superpixel Aggregation')
 
 // viewFolder
 //     .add(params, 'flood')
@@ -550,6 +565,130 @@ viewFolder
 
 viewFolder.open()
 // meshFolder.open()
+
+// scFolder
+//     .add(params, 'entropy')
+//     .onChange(() => {
+//         if (params.entropy) {
+//             uniforms.entropy.value = 1
+//         } else {
+//             uniforms.entropy.value = 0
+//         }
+//     })
+//     .name('Entropy')
+
+// scFolder
+//     .add(params, 'probability')
+//     .onChange(() => {
+//         if (params.probability) {
+//             uniforms.probability.value = 1
+//         } else {
+//             uniforms.probability.value = 0
+//         }
+//     })
+//     .name('Probability')
+
+const checkboxValues = {
+    probability: true,
+    entropy: false
+};
+
+
+// Add checkboxes to the folder
+const probability = scFolder.add(checkboxValues, 'probability').name('Probability');
+const entropy = scFolder.add(checkboxValues, 'entropy').name('Entropy');
+
+// Set up the mutual exclusivity behavior
+probability.onChange(function (value) {
+    if (value) {
+        entropy.setValue(false);
+        params.probability = true;
+        uniforms.probability.value = 1;
+        params.entropy = false;
+        uniforms.entropy.value = 0;
+    }
+    
+});
+
+entropy.onChange(function (value) {
+    if (value) {
+        probability.setValue(false);
+        params.entropy = true;
+        uniforms.entropy.value = 1;
+        params.probability = false;
+        uniforms.probability.value = 0;
+    }
+});
+
+scFolder.open()
+
+const checkboxValuesTransformation = {
+    avgTransformation: true,
+    minTransformation: false
+};
+
+
+// Add checkboxes to the folder
+const avgTransformation = transformationFolder.add(checkboxValuesTransformation, 'avgTransformation').name('Average');
+const minTransformation = transformationFolder.add(checkboxValuesTransformation, 'minTransformation').name('Minimum');
+
+// Set up the mutual exclusivity behavior
+avgTransformation.onChange(function (value) {
+    if (value) {
+        minTransformation.setValue(false);
+        params.avgTransformation = true;
+        uniforms.avgTransformation.value = 1;
+        params.minTransformation = false;
+        uniforms.minTransformation.value = 0;
+    }
+    
+});
+
+minTransformation.onChange(function (value) {
+    if (value) {
+        avgTransformation.setValue(false);
+        params.minTransformation = true;
+        uniforms.minTransformation.value = 1;
+        params.avgTransformation = false;
+        uniforms.avgTransformation.value = 0;
+    }
+});
+
+transformationFolder.open()
+
+const checkboxValuesSuperpixel = {
+    avgSuperpixel: true,
+    minSuperpixel: false
+};
+
+
+// Add checkboxes to the folder
+const avgSuperpixel = superpixelFolder.add(checkboxValuesSuperpixel, 'avgSuperpixel').name('Average');
+const minSuperpixel = superpixelFolder.add(checkboxValuesSuperpixel, 'minSuperpixel').name('Minimum');
+
+// Set up the mutual exclusivity behavior
+avgSuperpixel.onChange(function (value) {
+    if (value) {
+        minSuperpixel.setValue(false);
+        params.avgSuperpixel = true;
+        uniforms.avgSuperpixel.value = 1;
+        params.minSuperpixel = false;
+        uniforms.minSuperpixel.value = 0;
+    }
+    
+});
+
+minSuperpixel.onChange(function (value) {
+    if (value) {
+        avgSuperpixel.setValue(false);
+        params.minSuperpixel = true;
+        uniforms.minSuperpixel.value = 1;
+        params.avgSuperpixel = false;
+        uniforms.avgSuperpixel.value = 0;
+    }
+});
+
+superpixelFolder.open()
 
 function segSelect(x: number, y: number, color: string) {
     context!.fillStyle = color
@@ -1395,7 +1534,21 @@ var texContext : CanvasRenderingContext2D
                                 // // Process the JSON data (replace this part with your specific logic)
                                 // console.log('JSON Data:', jsonData)
                                 
-                                const superpixelBuffer = await fetch(`http://127.0.0.1:5000/superpixel?recommend=${1}`).then(response => response.arrayBuffer());
+                                var transformation_agg = 'avg';
+                                if (uniforms.minTransformation.value){
+                                    transformation_agg = 'min'
+                                }
+
+                                var superpixel_agg = 'avg';
+                                if (uniforms.minSuperpixel.value){
+                                    superpixel_agg = 'min'
+                                }
+                                const superpixelBuffer = await fetch(`http://127.0.0.1:5000/superpixel?recommend=${1}
+                                                                            &entropy=${uniforms.entropy.value}
+                                                                            &probability=${uniforms.probability.value}
+                                                                            &transformation_agg=${transformation_agg}
+                                                                            &superpixel_agg=${superpixel_agg}`).then(response => response.arrayBuffer());
+
                                 console.log("superpixelBuffer: ", superpixelBuffer)
 
                                 // Convert ArrayBuffer to base64

@@ -76,10 +76,19 @@ def stl():
 def superpixel():
     recommend = request.args.get('recommend')
 
+    entropy = int(request.args.get('entropy', 0))
+    probability = int(request.args.get('probability', 0))
+
+    transformation_agg = request.args.get('transformation_agg')
+    superpixel_agg = request.args.get('superpixel_agg')
+
+    print(entropy, probability)
+    print(superpixel_agg, transformation_agg)
+
     TEST_REGION = 1 # TODO: this should be received from frontend
     metrices = {}
     if int(recommend):
-        metrices = recommend_superpixels(TEST_REGION)
+        metrices = recommend_superpixels(TEST_REGION, entropy, probability, transformation_agg, superpixel_agg)
     
     payload = make_response(send_file('R1_superpixels_test.png'))
     payload.headers.add('Access-Control-Allow-Origin', '*')
@@ -167,10 +176,20 @@ def metrics_json():
     return payload
 
 
-@app.route('/retrain', methods=['POST'])
+@app.route('/retrain', methods=['POST', 'GET'])
 def retrain():
     task_id = request.args.get('taskId')
     file = request.files.get('image')
+
+    entropy = int(request.args.get('entropy', 0))
+    probability = int(request.args.get('probability', 0))
+
+    transformation_agg = request.args.get('transformation_agg')
+    superpixel_agg = request.args.get('superpixel_agg')
+
+    print(entropy, probability)
+    print(superpixel_agg, transformation_agg)
+
     if file:
         print('image is here')
         # file = request.files['image']
@@ -180,7 +199,7 @@ def retrain():
 
         # TODO: call train function in al.py
         TEST_REGION = 1 # TODO: this should be received from frontend
-        train(TEST_REGION)
+        train(TEST_REGION, entropy, probability, transformation_agg, superpixel_agg)
 
         payload = make_response(jsonify({'status': 'success', 'taskId': task_id}), 200)
         payload.headers.add('Access-Control-Allow-Origin', '*')

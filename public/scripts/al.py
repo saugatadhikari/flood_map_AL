@@ -64,13 +64,12 @@ def get_meta_data(DATASET_PATH):
         
     return META_DATA
 
-def run_pred_al(model, data_loader):
+def run_pred_al_probability(model, data_loader, TRANSFORMATION_SCORE):
     
     ## Model gets set to evaluation mode
     model.eval()
     pred_patches_dict = dict()
-    avg_pred_patches_dict = dict()
-    min_pred_patches_dict = dict()
+    final_pred_patches_dict = dict()
     
     for data_dict in tqdm(data_loader):
         
@@ -121,8 +120,14 @@ def run_pred_al(model, data_loader):
         pred_rot270_abs = torch.abs(pred_rot270_inv - half_array)
 
         # avg_prob = torch.sum(torch.stack([pred, pred_flipx_inv, pred_flipy_inv, pred_rot90_inv, pred_rot180_inv, pred_rot270_inv]), dim=0) / 6
-        avg_prob = torch.sum(torch.stack([pred, pred_flipx_abs, pred_flipy_abs, pred_rot90_abs, pred_rot180_abs, pred_rot270_abs]), dim=0) / 6
-        avg_prob_np = avg_prob.detach().cpu().numpy()
+        if TRANSFORMATION_SCORE == "AVG":
+            final_prob = torch.sum(torch.stack([pred, pred_flipx_abs, pred_flipy_abs, pred_rot90_abs, pred_rot180_abs, pred_rot270_abs]), dim=0) / 6
+        elif TRANSFORMATION_SCORE == "MIN":
+            final_prob = torch.min(torch.stack([pred, pred_flipx_abs, pred_flipy_abs, pred_rot90_abs, pred_rot180_abs, pred_rot270_abs]), dim=0) / 6
+        if TRANSFORMATION_SCORE == "MAX":
+            final_prob = torch.max(torch.stack([pred, pred_flipx_abs, pred_flipy_abs, pred_rot90_abs, pred_rot180_abs, pred_rot270_abs]), dim=0) / 6
+       
+        final_prob_np = final_prob.detach().cpu().numpy()
 
         # print("avg_prob_shape: ", avg_prob.shape)
         # print("avg_prob_np_shape: ", avg_prob_np.shape)
@@ -135,12 +140,12 @@ def run_pred_al(model, data_loader):
         
         ## Save Image and RGB patch
         for idx in range(rgb_data.shape[0]):
-            avg_pred_patches_dict[filename[idx]] = avg_prob_np[idx, :, :, :]
+            final_pred_patches_dict[filename[idx]] = final_prob_np[idx, :, :, :]
             # min_pred_patches_dict[filename[idx]] = min_prob_np[idx, :, :, :]
             pred_patches_dict[filename[idx]] = pred_np[idx, :, :, :]
         
     # return avg_pred_patches_dict, min_pred_patches_dict, pred_patches_dict
-    return pred_patches_dict, avg_pred_patches_dict
+    return pred_patches_dict, final_pred_patches_dict
 
 def run_pred_al_min(model, data_loader):
     
@@ -292,7 +297,7 @@ def run_pred_al_sc(model, data_loader):
         
     return pred_patches_dict, loss_patches_dict
 
-def run_pred_al_entropy(model, data_loader):
+def run_pred_al_entropy(model, data_loader, TRANSFORMATION_SCORE):
     
     ## Model gets set to evaluation mode
     model.eval()
@@ -340,7 +345,7 @@ def run_pred_al_entropy(model, data_loader):
         # all_logits = [pred, pred_flipx_inv, pred_flipy_inv, pred_rot90_inv, pred_rot180_inv, pred_rot270_inv]
         all_logits = [pred, pred_flipx_inv, pred_flipy_inv, pred_rot90_inv, pred_rot180_inv, pred_rot270_inv]
 
-        entropy = compute_entropy(all_logits)
+        entropy = compute_entropy(all_logits, TRANSFORMATION_SCORE)
 
         pred_np = pred.detach().cpu().numpy()
         entropy_np = entropy.detach().cpu().numpy()
@@ -353,8 +358,9 @@ def run_pred_al_entropy(model, data_loader):
     return pred_patches_dict, entropy_patches_dict
 
 
-def compute_entropy(outputs):
+def compute_entropy(outputs, TRANSFORMATION_SCORE):
 
+    counter = 0
     for i, output in enumerate(outputs):
         # print("output_shape: ", output.shape)
         prob_out = torch.nn.functional.softmax(output, dim = 1)
@@ -372,12 +378,23 @@ def compute_entropy(outputs):
 
         if i == 0:
             numpy_ent_total = entropy_computed
+            stacked_entropy = entropy_computed
         else:
             numpy_ent_total += entropy_computed
+            stacked_entropy = torch.stack([stacked_entropy, entropy_computed])
+        
+        counter += 1
         
         # print("numpy_ent_total_shape: ", numpy_ent_total.shape)
+    
+    if TRANSFORMATION_SCORE == "AVG":
+        return (entropy_computed / counter)
+    elif TRANSFORMATION_SCORE == "MIN":
+        return torch.min(stacked_entropy, dim=0)
+    elif TRANSFORMATION_SCORE == "MAX":
+        return torch.max(stacked_entropy, dim=0)
    
-    return numpy_ent_total 
+    # return numpy_ent_total 
 
 
 def run_pred_final(model, data_loader):
@@ -607,16 +624,31 @@ def center_crop(stictched_data, original_height, original_width, image = False):
     
     return cropped
 
-def get_superpixel_scores(superpixels_group, logits):
+def get_superpixel_scores(superpixels_group, logits, SUPERPIXEL_SCORE):
     superpixel_scores = {}
     for sid, pixels in superpixels_group.items():
         total_score = 0
         total_pixels = len(pixels)
+        min_score = 1e300
+        max_score = -1e300
         for (row, col) in pixels:
             prob_score = logits[row][col]
             total_score += prob_score
-        avg_score = total_score / total_pixels # average of all pixel's score
-        superpixel_scores[sid] = avg_score
+            if prob_score < min_score:
+                min_score = prob_score
+            
+            if prob_score > max_score:
+                max_score = prob_score
+
+        if SUPERPIXEL_SCORE == "AVG":
+            superpixel_scores[sid] = total_score / total_pixels
+        elif SUPERPIXEL_SCORE == "MIN":
+            superpixel_scores[sid] = min_score
+        elif SUPERPIXEL_SCORE == "MAX":
+            superpixel_scores[sid] = max_score
+
+        # avg_score = total_score / total_pixels # average of all pixel's score
+        # superpixel_scores[sid] = avg_score
     
     return superpixel_scores
 
@@ -783,8 +815,33 @@ def convert_to_rgb(input_array):
     return rgb_image
 
 
-def recommend_superpixels(TEST_REGION):
+def recommend_superpixels(TEST_REGION, entropy, probability, transformation_agg, superpixel_agg):
+    config.ENTROPY = entropy
+    config.PROBABILITY = probability
+
+    if transformation_agg.strip().lower() == 'avg':
+        config.TRANSFORMATION_SCORE = 'AVG'
+    elif config.ENTROPY:
+        config.TRANSFORMATION_SCORE = 'MAX'
+    else:
+        config.TRANSFORMATION_SCORE = 'MIN'
+
+    if superpixel_agg.strip().lower() == 'avg':
+        config.SUPERPIXEL_SCORE = 'AVG'
+    elif config.ENTROPY:
+        config.SUPERPIXEL_SCORE = 'MAX'
+    else:
+        config.SUPERPIXEL_SCORE = 'MIN'
+
+    print(config.ENTROPY, config.PROBABILITY)
+    print(config.TRANSFORMATION_SCORE, config.SUPERPIXEL_SCORE)
+
+    # fallback if user choose both to be 0
+    if (entropy == 0 and probability == 0):
+        config.PROBABILITY = 1
+
     return # TODO: remove after test
+
 
     start = time.time()
     DATASET_PATH = "./data_al/repo/Features_7_Channels"
@@ -877,50 +934,74 @@ def recommend_superpixels(TEST_REGION):
     test_dataset = get_dataset(cropped_data_path)
     test_loader = DataLoader(test_dataset, batch_size = config.BATCH_SIZE)
 
-    if config.SC_LOSS:
-        pred_patches_dict, loss_patches_dict = run_pred_al_sc(model, test_loader)
-        _, loss_stitched = stitch_patches(loss_patches_dict, TEST_REGION, LOSS_SC=True)
-        loss_unpadded = center_crop(loss_stitched, height, width, image = False)
-        loss_unpadded = np.sum(loss_unpadded, axis=-1)
-
-        superpixel_scores = get_superpixel_scores(superpixels_group, loss_unpadded)
-    
-        # sort by prob score in ascending order; most uncertain superpixel first (whichever is close to 0.5)
-        superpixel_scores = dict(sorted(superpixel_scores.items(), key=lambda item: item[1]), reverse=True)
-        selected_superpixels, max_items = select_superpixels(total_superpixels, superpixel_scores, forest_superpixels)
-    elif config.SC_ENTROPY:
-        pred_patches_dict, entropy_patches_dict = run_pred_al_entropy(model, test_loader)
+    if config.ENTROPY:
+        pred_patches_dict, entropy_patches_dict = run_pred_al_entropy(model, test_loader, config.TRANSFORMATION_SCORE)
         _, entropy_stitched = stitch_patches(entropy_patches_dict, TEST_REGION)
         entropy_unpadded = center_crop(entropy_stitched, height, width, image = False)
         entropy_unpadded = np.sum(entropy_unpadded, axis=-1)
 
-        superpixel_scores = get_superpixel_scores(superpixels_group, entropy_unpadded)
+        superpixel_scores = get_superpixel_scores(superpixels_group, entropy_unpadded, config.SUPERPIXEL_SCORE)
     
         # sort by prob score in ascending order; most uncertain superpixel first (whichever is close to 0.5)
         superpixel_scores = dict(sorted(superpixel_scores.items(), key=lambda item: item[1]), reverse=True)
         selected_superpixels, max_items = select_superpixels(total_superpixels, superpixel_scores, forest_superpixels)
-    elif config.SC_MIN:
-        pred_patches_dict, min_pred_patches_dict = run_pred_al_min(model, test_loader)
-        _, pred_stitched = stitch_patches(min_pred_patches_dict, TEST_REGION)
+    elif config.PROBABILITY:
+        pred_patches_dict, final_pred_patches_dict = run_pred_al_probability(model, test_loader, config.TRANSFORMATION_SCORE)
+        rgb_stitched, pred_stitched = stitch_patches(final_pred_patches_dict, TEST_REGION)
         pred_unpadded = center_crop(pred_stitched, height, width, image = False)
         pred_unpadded = pred_unpadded[:,:,0]
 
-        superpixel_scores = get_superpixel_scores(superpixels_group, pred_unpadded)
+        superpixel_scores = get_superpixel_scores(superpixels_group, pred_unpadded, config.SUPERPIXEL_SCORE)
     
         # sort by prob score in ascending order; most uncertain superpixel first (whichever is close to 0.5)
         superpixel_scores = dict(sorted(superpixel_scores.items(), key=lambda item: item[1]))
         selected_superpixels, max_items = select_superpixels(total_superpixels, superpixel_scores, forest_superpixels)
-    else:
-        pred_patches_dict, avg_pred_patches_dict = run_pred_al(model, test_loader)
-        rgb_stitched, pred_stitched = stitch_patches(avg_pred_patches_dict, TEST_REGION)
-        pred_unpadded = center_crop(pred_stitched, height, width, image = False)
-        pred_unpadded = pred_unpadded[:,:,0]
 
-        superpixel_scores = get_superpixel_scores(superpixels_group, pred_unpadded)
+
+    # if config.SC_LOSS:
+    #     pred_patches_dict, loss_patches_dict = run_pred_al_sc(model, test_loader)
+    #     _, loss_stitched = stitch_patches(loss_patches_dict, TEST_REGION, LOSS_SC=True)
+    #     loss_unpadded = center_crop(loss_stitched, height, width, image = False)
+    #     loss_unpadded = np.sum(loss_unpadded, axis=-1)
+
+    #     superpixel_scores = get_superpixel_scores(superpixels_group, loss_unpadded)
     
-        # sort by prob score in ascending order; most uncertain superpixel first (whichever is close to 0.5)
-        superpixel_scores = dict(sorted(superpixel_scores.items(), key=lambda item: item[1]))
-        selected_superpixels, max_items = select_superpixels(total_superpixels, superpixel_scores, forest_superpixels)
+    #     # sort by prob score in ascending order; most uncertain superpixel first (whichever is close to 0.5)
+    #     superpixel_scores = dict(sorted(superpixel_scores.items(), key=lambda item: item[1]), reverse=True)
+    #     selected_superpixels, max_items = select_superpixels(total_superpixels, superpixel_scores, forest_superpixels)
+    # elif config.SC_ENTROPY:
+    #     pred_patches_dict, entropy_patches_dict = run_pred_al_entropy(model, test_loader)
+    #     _, entropy_stitched = stitch_patches(entropy_patches_dict, TEST_REGION)
+    #     entropy_unpadded = center_crop(entropy_stitched, height, width, image = False)
+    #     entropy_unpadded = np.sum(entropy_unpadded, axis=-1)
+
+    #     superpixel_scores = get_superpixel_scores(superpixels_group, entropy_unpadded)
+    
+    #     # sort by prob score in ascending order; most uncertain superpixel first (whichever is close to 0.5)
+    #     superpixel_scores = dict(sorted(superpixel_scores.items(), key=lambda item: item[1]), reverse=True)
+    #     selected_superpixels, max_items = select_superpixels(total_superpixels, superpixel_scores, forest_superpixels)
+    # elif config.SC_MIN:
+    #     pred_patches_dict, min_pred_patches_dict = run_pred_al_min(model, test_loader)
+    #     _, pred_stitched = stitch_patches(min_pred_patches_dict, TEST_REGION)
+    #     pred_unpadded = center_crop(pred_stitched, height, width, image = False)
+    #     pred_unpadded = pred_unpadded[:,:,0]
+
+    #     superpixel_scores = get_superpixel_scores(superpixels_group, pred_unpadded)
+    
+    #     # sort by prob score in ascending order; most uncertain superpixel first (whichever is close to 0.5)
+    #     superpixel_scores = dict(sorted(superpixel_scores.items(), key=lambda item: item[1]))
+    #     selected_superpixels, max_items = select_superpixels(total_superpixels, superpixel_scores, forest_superpixels)
+    # else:
+    #     pred_patches_dict, avg_pred_patches_dict = run_pred_al(model, test_loader)
+    #     rgb_stitched, pred_stitched = stitch_patches(avg_pred_patches_dict, TEST_REGION)
+    #     pred_unpadded = center_crop(pred_stitched, height, width, image = False)
+    #     pred_unpadded = pred_unpadded[:,:,0]
+
+    #     superpixel_scores = get_superpixel_scores(superpixels_group, pred_unpadded)
+    
+    #     # sort by prob score in ascending order; most uncertain superpixel first (whichever is close to 0.5)
+    #     superpixel_scores = dict(sorted(superpixel_scores.items(), key=lambda item: item[1]))
+    #     selected_superpixels, max_items = select_superpixels(total_superpixels, superpixel_scores, forest_superpixels)
 
 
     ## Stitch pred patches back together
@@ -996,9 +1077,31 @@ def ann_to_labels(png_image, TEST_REGION):
     return final_arr
 
 
-def train(TEST_REGION):
+def train(TEST_REGION, entropy, probability, transformation_agg, superpixel_agg):
     print("Retraining the Model with new labels")
-    time.sleep(5)
+
+    config.ENTROPY = entropy
+    config.PROBABILITY = probability
+
+    if transformation_agg.strip().lower() == 'avg':
+        config.TRANSFORMATION_SCORE = 'AVG'
+    elif config.ENTROPY:
+        config.TRANSFORMATION_SCORE = 'MAX'
+    else:
+        config.TRANSFORMATION_SCORE = 'MIN'
+
+    if superpixel_agg.strip().lower() == 'avg':
+        config.SUPERPIXEL_SCORE = 'AVG'
+    elif config.ENTROPY:
+        config.SUPERPIXEL_SCORE = 'MAX'
+    else:
+        config.SUPERPIXEL_SCORE = 'MIN'
+
+    # fallback if user choose both to be 0
+    if (entropy == 0 and probability == 0):
+        config.PROBABILITY = 1
+
+    # time.sleep(5)
     return # TODO: remove after test
 
 
@@ -1247,7 +1350,7 @@ def train(TEST_REGION):
         file.write(str(resume_epoch))
     
     # call AL pipeline once the model is retrained
-    recommend_superpixels(TEST_REGION)
+    recommend_superpixels(TEST_REGION, config.ENTROPY, config.PROBABILITY, transformation_agg, superpixel_agg)
     
     return
 

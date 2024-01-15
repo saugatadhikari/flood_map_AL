@@ -563,11 +563,28 @@ async function retrainSession(event: Event) {
     const taskId = encodeURIComponent(sessionData.name);
 
     // Send a POST request to the Flask backend
+
+    var transformation_agg = 'avg';
+    if (uniforms.minTransformation.value){
+        transformation_agg = 'min'
+    }
+
+    var superpixel_agg = 'avg';
+    if (uniforms.minSuperpixel.value){
+        superpixel_agg = 'min'
+    }
+
     showLoadingScreen();
-    const response = await fetch(`http://127.0.0.1:5000/retrain?taskId=${taskId}`, {
-        method: 'POST',
-        body: formData,
-    });
+
+    const response = await fetch(`http://127.0.0.1:5000/retrain?taskId=${taskId}
+                                    &entropy=${uniforms.entropy.value}
+                                    &probability=${uniforms.probability.value}
+                                    &transformation_agg=${transformation_agg}
+                                    &superpixel_agg=${superpixel_agg}`, {
+                        method: 'POST',
+                        body: formData,
+                    });
+
     const data = await response.json();
 
     // Check if the task was successfully started

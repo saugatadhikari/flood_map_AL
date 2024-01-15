@@ -56,10 +56,13 @@ TODO:
 8. ban forests from being annotated 
     --> show cross mark: PARTIALLY DONE
 
-9. 8 versions of self-consistency in acquisition --> use ticks on frontend to decide the configuration; configure URL as well
- --> find combination of best later (CHECK RECORDING)
-10. Get forest model ready first: CHECK RECORDING
-11. Read paper by Dr. Wang
+9. 8 versions of self-consistency in acquisition: coding DONE
+ --> use ticks on frontend to decide the configuration: DONE 
+ --> configure URL as well: TODO
+ --> find combination of best later: TODO
+
+10. Get forest model ready first: TODO
+11. Read paper by Dr. Wang: TODO
  
 12. Split superpixels if partially annotated
 13. penalize corrected annotation from users if model still predicts the old labels: at the END
