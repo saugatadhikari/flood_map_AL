@@ -187,9 +187,6 @@ def retrain():
     transformation_agg = request.args.get('transformation_agg')
     superpixel_agg = request.args.get('superpixel_agg')
 
-    print(entropy, probability)
-    print(superpixel_agg, transformation_agg)
-
     if file:
         print('image is here')
         # file = request.files['image']

@@ -840,7 +840,7 @@ def recommend_superpixels(TEST_REGION, entropy, probability, transformation_agg,
     if (entropy == 0 and probability == 0):
         config.PROBABILITY = 1
 
-    return # TODO: remove after test
+    # return # TODO: remove after test
 
 
     start = time.time()

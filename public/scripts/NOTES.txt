@@ -33,10 +33,8 @@
     --> select ones with highest entropy
 
         1. our case we can try min first and then avg
-            --> min gives most uncertain 
-        2. consider consistency in acquisition as well
-            --> recommend superpixels with highest self-consistency loss
-        3. try entropy from EqAL paper: DONE
+            --> min gives most uncertain
+        2. try entropy from EqAL paper: DONE
 
 5. Superpixels
 
@@ -61,7 +59,22 @@ TODO:
  --> configure URL as well: TODO
  --> find combination of best later: TODO
 
-10. Get forest model ready first: TODO
+10. Forest Model: TODO (Switch to Slides)
+    --> Our model gives initial prediction
+    --> User can correct the prediction on frontend
+            if confirmed (painted green): 
+                FOREST 
+            else if erased (painted blue): 
+                NOT FOREST
+            else:
+                UNKNOWN
+    --> Retrain the forest model ???
+        --> Our initial model uses confidence score based on user's annotation
+        --> When we get user feedback from frontend we can do similar:
+            --> FOREST pixels: set confidence score to 0
+            --> NOT FOREST pixels: set confidence score to 1
+            --> UNKNOWN pixels: set confidence score to 0.5
+
 11. Read paper by Dr. Wang: TODO
  
 12. Split superpixels if partially annotated
