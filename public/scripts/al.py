@@ -1102,7 +1102,7 @@ def train(TEST_REGION, entropy, probability, transformation_agg, superpixel_agg)
         config.PROBABILITY = 1
 
     # time.sleep(5)
-    return # TODO: remove after test
+    # return # TODO: remove after test
 
 
     model = EvaNet(config.BATCH_SIZE, config.IN_CHANNEL, config.N_CLASSES, ultrasmall = True).to(DEVICE)
