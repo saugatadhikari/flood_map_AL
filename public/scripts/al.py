@@ -123,9 +123,9 @@ def run_pred_al_probability(model, data_loader, TRANSFORMATION_SCORE):
         if TRANSFORMATION_SCORE == "AVG":
             final_prob = torch.sum(torch.stack([pred, pred_flipx_abs, pred_flipy_abs, pred_rot90_abs, pred_rot180_abs, pred_rot270_abs]), dim=0) / 6
         elif TRANSFORMATION_SCORE == "MIN":
-            final_prob = torch.min(torch.stack([pred, pred_flipx_abs, pred_flipy_abs, pred_rot90_abs, pred_rot180_abs, pred_rot270_abs]), dim=0) / 6
-        if TRANSFORMATION_SCORE == "MAX":
-            final_prob = torch.max(torch.stack([pred, pred_flipx_abs, pred_flipy_abs, pred_rot90_abs, pred_rot180_abs, pred_rot270_abs]), dim=0) / 6
+            final_prob = torch.min(torch.stack([pred, pred_flipx_abs, pred_flipy_abs, pred_rot90_abs, pred_rot180_abs, pred_rot270_abs]), dim=0).values
+        elif TRANSFORMATION_SCORE == "MAX":
+            final_prob = torch.max(torch.stack([pred, pred_flipx_abs, pred_flipy_abs, pred_rot90_abs, pred_rot180_abs, pred_rot270_abs]), dim=0).values
        
         final_prob_np = final_prob.detach().cpu().numpy()
 
@@ -361,6 +361,7 @@ def run_pred_al_entropy(model, data_loader, TRANSFORMATION_SCORE):
 def compute_entropy(outputs, TRANSFORMATION_SCORE):
 
     counter = 0
+    entropy_list = []
     for i, output in enumerate(outputs):
         # print("output_shape: ", output.shape)
         prob_out = torch.nn.functional.softmax(output, dim = 1)
@@ -376,23 +377,28 @@ def compute_entropy(outputs, TRANSFORMATION_SCORE):
         # print("entropy_computed_shape: ", entropy_computed.shape)
         # entropy_map = torch.sum(entropy_computed, dim=1) # summation over c in paper
 
+        if TRANSFORMATION_SCORE != "AVG":
+            entropy_computed = entropy_computed.unsqueeze(dim = 1)
+        entropy_list.append(entropy_computed)
+
         if i == 0:
             numpy_ent_total = entropy_computed
-            stacked_entropy = entropy_computed
+            # stacked_entropy = entropy_computed
         else:
             numpy_ent_total += entropy_computed
-            stacked_entropy = torch.stack([stacked_entropy, entropy_computed])
+            # stacked_entropy = torch.stack([stacked_entropy, entropy_computed])
         
         counter += 1
         
         # print("numpy_ent_total_shape: ", numpy_ent_total.shape)
-    
+    stacked_entropy = torch.cat(entropy_list, dim=1)
+
     if TRANSFORMATION_SCORE == "AVG":
         return (entropy_computed / counter)
     elif TRANSFORMATION_SCORE == "MIN":
-        return torch.min(stacked_entropy, dim=0)
+        return torch.min(stacked_entropy, dim=1).values
     elif TRANSFORMATION_SCORE == "MAX":
-        return torch.max(stacked_entropy, dim=0)
+        return torch.max(stacked_entropy, dim=1).values
    
     # return numpy_ent_total 
 

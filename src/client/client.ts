@@ -351,9 +351,9 @@ var uniforms = {
     minSuperpixel: {value: 0},
 }
 const viewFolder = gui.addFolder('Settings')
-const scFolder = gui.addFolder('Self Consistency Method')
-const transformationFolder = gui.addFolder('Transformation Aggregation')
-const superpixelFolder = gui.addFolder('Superpixel Aggregation')
+const scFolder = gui.addFolder('Uncertainty Measure')
+const transformationFolder = gui.addFolder('Transform-level Agg')
+const superpixelFolder = gui.addFolder('Pixel-level Agg')
 
 // viewFolder
 //     .add(params, 'flood')

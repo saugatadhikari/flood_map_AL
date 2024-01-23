@@ -40,19 +40,21 @@
 
 
 
-TODO:
+01/10
+
 1. Remove functionalities related to topology based segmentation: DONE
 2. Remove logging feature: DONE
 3. Use propagated labels for retraining: DONE
-4. Save traingulation on disk and load from there: DONE
-    TODO: check whether it is network issue for slow down???
+4. Save triangulation on disk and load from there: DONE
+     --> check whether it is network issue for slow down --> internet issue
 5. Colormap for superpixel: Red -> White (2 extreme colors): DONE
 6. Highlights holes in superpixels (obvious colors like light blue): DONE
-   --> if superpixel is recommemded but majority are forests, highlight non-forest with blue color: DONE
+   --> if superpixel is recommended but majority are forests, highlight non-forest with blue color: DONE
 7. Display metrics in each iteration when we get the prediction: DONE
 
 8. ban forests from being annotated 
     --> show cross mark: PARTIALLY DONE
+    --> add sound: TODO
 
 9. 8 versions of self-consistency in acquisition: coding DONE
  --> use ticks on frontend to decide the configuration: DONE 
@@ -75,7 +77,23 @@ TODO:
             --> NOT FOREST pixels: set confidence score to 1
             --> UNKNOWN pixels: set confidence score to 0.5
 
-11. Read paper by Dr. Wang: TODO
- 
-12. Split superpixels if partially annotated
+
+11. Read paper sent by Dr. Wang: DONE
+12. Split superpixels if partially annotated: at the END
 13. penalize corrected annotation from users if model still predicts the old labels: at the END
+12. Superpixels improvement: at the END 
+
+
+01/17
+1. Metrics: remove quotation, Acc on top (only one), space between dry and flood metrics, space after accuracy, Align: TODO
+2. change notations: TODO
+
+3. Change self-consistency to Uncertainty Measure: DONE
+4. Transform-level Agg, Pixel-level Agg: Frontend: DONE
+5. When Entropy is selected, Minimum option should change to Maximum: TODO
+
+6. Forest Model: Switch to slides for details
+
+7. Read paper and be ready for discussion next week: DONE
+
+01/24

@@ -111,5 +111,5 @@ class EvaNet(nn.Module):
         x = self.outc(x, h)
         # print("Out Conv: ", x.shape)
         x = self.out_nonlin(x)
-        
+        # print("Out Nonlin: ", x.shape)
         return x

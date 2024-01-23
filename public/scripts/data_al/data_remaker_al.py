@@ -93,8 +93,11 @@ def crop_data(uncropped_data, region_num):
             np.save(os.path.join(output_path, new_name), patch)
 
 def crop_data_al(uncropped_data, filename, is_feature = False):
-    base_path = "./data_al/"
-    output_path = base_path + "cropped_al"
+    # base_path = "./data_al/"
+    # output_path = base_path + "cropped_al"
+
+    output_path = os.path.join(os.getcwd(), "data_al/cropped_al")
+
     if not os.path.exists(output_path):
         os.mkdir(output_path)
     
@@ -157,7 +160,8 @@ def make_dir(TEST_REGION):
     
         
 def move_files(TEST_REGION):
-    base_path = "./data_al/"
+    # base_path = "./data_al/"
+    base_path = os.path.join(os.getcwd(), "data_al/")
     
     for file in tqdm(os.listdir(base_path + "cropped_al")):
         if not "label" in file:
