@@ -272,6 +272,54 @@ function resetCamera(controls: any) {
     return controls
 }
 
+// function startSession() {
+//     // event.preventDefault()
+//     // ;(event.target as HTMLButtonElement).style.display = 'none'
+//     let startStateData = {
+//         label: 'start',
+//         aspectRatio: camera.aspect,
+//         cameraPosition: camera.position.clone(),
+//         targetPosition: controls.target.clone(),
+//         time: new Date(),
+//         flood: true,
+//         clear: false,
+//     }
+//     gameState.push({ start: startStateData })
+//     if (!sessionData.sessionStart) {
+//         sessionData.sessionStart = new Date()
+//     }
+//     new TWEEN.Tween(controls.target)
+//         .to(
+//             {
+//                 x: 0,
+//                 y: 0,
+//                 z: 0,
+//             },
+//             1000
+//         )
+//         .easing(TWEEN.Easing.Cubic.Out)
+//         .onUpdate(() => {
+//             controls.update()
+//         })
+//         .start()
+
+//     new TWEEN.Tween(camera.position)
+//         .to(
+//             {
+//                 x: 0,
+//                 y: 0,
+//                 z: 1000,
+//             },
+//             1000
+//         )
+//         .easing(TWEEN.Easing.Cubic.Out)
+//         .onUpdate(() => {
+//             camera.updateProjectionMatrix()
+//         })
+//         .start()
+//     startUp()
+// }
+
 function startSession() {
     // event.preventDefault()
     // ;(event.target as HTMLButtonElement).style.display = 'none'
@@ -291,8 +339,8 @@ function startSession() {
     new TWEEN.Tween(controls.target)
         .to(
             {
-                x: 0,
-                y: 0,
+                x: (regionBounds[1] + regionBounds[0]) / 2,
+                y: (regionBounds[2] + regionBounds[3]) / 2,
                 z: 0,
             },
             1000
@@ -306,8 +354,8 @@ function startSession() {
     new TWEEN.Tween(camera.position)
         .to(
             {
-                x: 0,
-                y: 0,
+                x: (regionBounds[1] + regionBounds[0]) / 2,
+                y: (regionBounds[2] + regionBounds[3]) / 2,
                 z: 1000,
             },
             1000
@@ -454,7 +502,7 @@ function showLoadingScreen(){
     ;(document.getElementById('loaderSide') as HTMLElement).style.display = 'block'
     // ;(document.getElementById('loaderTrain') as HTMLElement).style.display = 'block'
     ;(document.getElementById('modal-wrapper') as HTMLElement).style.display = 'none'
-    ;(document.getElementById('metrices') as HTMLElement).style.display = 'none'
+    // ;(document.getElementById('metrices') as HTMLElement).style.display = 'none'
 }
 
 function hideLoadingScreen(){

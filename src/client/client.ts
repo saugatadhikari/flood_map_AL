@@ -228,7 +228,7 @@ var segsMax: { [key: number]: number } = {}
 
 ;(document.getElementById('loader') as HTMLElement).style.display = 'none'
 ;(document.getElementById('loaderSide') as HTMLElement).style.display = 'none'
-;(document.getElementById('metrices') as HTMLElement).style.display = 'none'
+// ;(document.getElementById('metrices') as HTMLElement).style.display = 'none'
 // ;(document.getElementById('loaderTrain') as HTMLElement).style.display = 'none'
 ;(document.getElementById('modal-wrapper') as HTMLElement).style.display = 'block'
 persLoader.load(
@@ -1686,7 +1686,7 @@ var texContext : CanvasRenderingContext2D
                                 jsonContainer.appendChild(preElement);
                                 
 
-                                ;(document.getElementById('metrices') as HTMLElement).style.display = 'block'
+                                // ;(document.getElementById('metrices') as HTMLElement).style.display = 'block'
                             } else {
                                 console.log('jsonContainer not found.');
                             }
