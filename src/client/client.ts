@@ -423,17 +423,17 @@ viewFolder
 //saugat
 
 // saugat
-viewFolder
-.add(params, 'confidence')
-.onChange(() => {
-    if (params.confidence) {
-        uniforms.confidence.value = 1
-    } else {
-        uniforms.confidence.value = 0
-    }
-})
-.name('Show Forest Prediction')
-//saugat
+// viewFolder
+// .add(params, 'confidence')
+// .onChange(() => {
+//     if (params.confidence) {
+//         uniforms.confidence.value = 1
+//     } else {
+//         uniforms.confidence.value = 0
+//     }
+// })
+// .name('Show Forest Prediction')
+// //saugat
 
 
 let sizeMap = {
@@ -1272,22 +1272,23 @@ const onKeyPress = (event: KeyboardEvent) => {
         let [x, y_orig] = performRayCasting()
 
         let y: any = regionDimensions[1] - 1 - y_orig // y is height, x is width
-        // BFSHandler(x, y, params.flood, params.clear)
+        BFSHandler(x, y, params.flood, params.clear)
 
         const pixelIndex = y * regionDimensions[0] + x
         const pixelVal = forestJson[pixelIndex]
         
-        // console.log("pixelVal: ", pixelVal)
-        if (pixelVal == 0){
-            // y = regionDimensions[1] - 1 - y
-            BFSHandler(x, y, params.flood, params.clear)
-            ;(document.getElementById('crossContainer') as HTMLElement).style.display = 'none'
-        }
-        else{
-            const clickX = x
-            const clickY = y_orig;
-            displayCrossMark(clickX, clickY);
-        }
+        // TODO: uncomment after demo recording
+        // // console.log("pixelVal: ", pixelVal)
+        // if (pixelVal == 0){
+        //     // y = regionDimensions[1] - 1 - y
+        //     BFSHandler(x, y, params.flood, params.clear)
+        //     ;(document.getElementById('crossContainer') as HTMLElement).style.display = 'none'
+        // }
+        // else{
+        //     const clickX = x
+        //     const clickY = y_orig;
+        //     displayCrossMark(clickX, clickY);
+        // }
     } else if (event.key == 't' && metaState.brushSelection) {
         let [x, y] = performRayCasting()
         if (
