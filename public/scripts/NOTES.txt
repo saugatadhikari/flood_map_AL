@@ -101,3 +101,10 @@
 3. Integrate forest score in acquisition function instead of banning them
 4. prepare detailed instructions for Forest Model
 5. Change retrain button CSS
+6. For unsupervised loss, only take unlabeled regions
+
+About TOD Code:
+1. main_TOD.py: train_epoch() function, why do we need res_loss? Its always zero, right? scores and cons_scores use to compute mse_loss looks exactly same to me!
+2. Check ema parameters update!!!
+3. Check LR scheduler!!!
+4. Check whether or not we need to do softmax in EvaNet!!!

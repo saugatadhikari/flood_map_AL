@@ -166,6 +166,22 @@ def retrain():
     transformation_agg = request.args.get('transformation_agg')
     superpixel_agg = request.args.get('superpixel_agg')
 
+    # read cycle from txt file
+    try:
+        with open(f"./users/{student_id}/al_cycles/R{TEST_REGION}.txt", 'r') as file:
+            content = file.read()
+            al_cycle = int(content) 
+    except FileNotFoundError:
+        al_cycle = 0
+
+    # read iters from txt file
+    try:
+        with open(f"./users/{student_id}/al_iters/R{TEST_REGION}.txt", 'r') as file:
+            content = file.read()
+            al_iters = int(content) 
+    except FileNotFoundError:
+        al_iters = 0
+
     if file:
         print('image is here')
         # file = request.files['image']
@@ -173,7 +189,7 @@ def retrain():
         # Process the file as needed, for example, save it to the server
         file.save(f'./users/{student_id}/output/R{TEST_REGION}_labels.png')
 
-        train(TEST_REGION, entropy, probability, transformation_agg, superpixel_agg, student_id)
+        train(TEST_REGION, entropy, probability, transformation_agg, superpixel_agg, student_id, al_cycle, al_iters)
 
         payload = make_response(jsonify({'status': 'success', 'taskId': student_id}), 200)
         payload.headers.add('Access-Control-Allow-Origin', '*')

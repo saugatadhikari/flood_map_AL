@@ -147,6 +147,37 @@ def run_pred_al_probability(model, data_loader, TRANSFORMATION_SCORE):
     # return avg_pred_patches_dict, min_pred_patches_dict, pred_patches_dict
     return pred_patches_dict, final_pred_patches_dict
 
+def run_pred_al_cod(models, data_loader):
+    
+    ## Model gets set to evaluation mode
+    pred_patches_dict = dict()
+    final_pred_patches_dict = dict()
+    
+    for data_dict in tqdm(data_loader):
+        
+        ## RGB data
+        rgb_data = data_dict['rgb_data'].float().to(DEVICE)
+
+        ## Elevation data
+        norm_elev_data = data_dict['norm_elev_data'].float().to(DEVICE)
+
+        ## Get filename
+        filename = data_dict['filename']
+
+        ## Get model prediction
+        pred_backbone = models['backbone'](rgb_data, norm_elev_data)
+        pred_cod = models['cod'](rgb_data, norm_elev_data)
+
+        cod_loss = (pred_backbone - pred_cod).pow(2)
+        print("cod_loss: ", cod_loss.shape)
+        final_prob_np = cod_loss.detach().cpu().numpy()
+        
+        ## Save Image and RGB patch
+        for idx in range(rgb_data.shape[0]):
+            final_pred_patches_dict[filename[idx]] = final_prob_np[idx, :, :, :]
+
+    return final_pred_patches_dict
+
 def run_pred_al_min(model, data_loader):
     
     ## Model gets set to evaluation mode
@@ -675,6 +706,17 @@ def get_superpixel_scores_min(superpixels_group, logits):
     return superpixel_scores
 
 
+def update_ema_variables(model, ema_model, alpha, global_step):
+    # Use the true average until the exponential average is more correct
+    alpha = min(1 - 1 / (global_step + 1), alpha)
+    for ema_param, param in zip(ema_model.parameters(), model.parameters()):
+        ema_param.data.mul_(alpha).add_(1 - alpha, param.data)
+
+def ema_loss(backbone_scores, ema_scores):
+    consistency_loss = F.mse_loss(backbone_scores, ema_scores)
+    return consistency_loss
+
+
 def loss_self_consistency(logits: list, labels):
     if not logits:
         return 0
@@ -821,7 +863,7 @@ def convert_to_rgb(input_array):
     return rgb_image
 
 
-def recommend_superpixels(TEST_REGION, entropy, probability, transformation_agg, superpixel_agg, student_id):
+def recommend_superpixels(TEST_REGION, entropy, probability, transformation_agg, superpixel_agg, student_id, al_cycle):
     student_id = student_id.strip()
 
     if not os.path.exists(f"./users/{student_id}"):
@@ -932,6 +974,11 @@ def recommend_superpixels(TEST_REGION, entropy, probability, transformation_agg,
 
     ######### Pixel Selection using Active Learning #######################
     model = EvaNet(config.BATCH_SIZE, config.IN_CHANNEL, config.N_CLASSES, ultrasmall = True).to(DEVICE)
+    cod_model = EvaNet(config.BATCH_SIZE, config.IN_CHANNEL, config.N_CLASSES, ultrasmall = True).to(DEVICE)
+    backbone_net = EvaNet(config.BATCH_SIZE, config.IN_CHANNEL, config.N_CLASSES, ultrasmall = True).to(DEVICE)
+
+    models = {'original': model, 'backbone': backbone_net, 'cod': cod_model}
+
     optimizer = SGD(model.parameters(), lr = 1e-7)
     criterion = ElevationLoss()
     elev_eval = Evaluator()
@@ -944,12 +991,20 @@ def recommend_superpixels(TEST_REGION, entropy, probability, transformation_agg,
     else:
         print(f"Resuming from epoch {resume_epoch}")
 
-    checkpoint = torch.load(model_path, map_location=torch.device(DEVICE))
-    model.load_state_dict(checkpoint['model'])
+    checkpoint_backbone = torch.load(model_path, map_location=torch.device(DEVICE))
+    models['backbone'].load_state_dict(checkpoint_backbone['model'])
+
+    if al_cycle > 0:
+        model_path_last_cycle = f"./users/{student_id}/saved_models_al/Region_{TEST_REGION}_TEST/saved_model_AL_cycle_{al_cycle}.ckpt"
+        checkpoint = torch.load(model_path_last_cycle, map_location=torch.device(DEVICE))
+        models['cod'].load_state_dict(checkpoint['model'])
+
     
     
     ## Model gets set to evaluation mode
-    model.eval()
+    models['backbone'].eval()
+    models['cod'].eval()
+
     pred_patches_dict = dict()
 
     META_DATA = get_meta_data(DATASET_PATH)
@@ -981,6 +1036,22 @@ def recommend_superpixels(TEST_REGION, entropy, probability, transformation_agg,
         # sort by prob score in ascending order; most uncertain superpixel first (whichever is close to 0.5)
         superpixel_scores = dict(sorted(superpixel_scores.items(), key=lambda item: item[1]))
         selected_superpixels, max_items = select_superpixels(total_superpixels, superpixel_scores, forest_superpixels)
+    elif config.COD:
+        pred_patches_dict, final_pred_patches_dict = run_pred_al_cod(model, test_loader)
+        rgb_stitched, pred_stitched = stitch_patches(final_pred_patches_dict, TEST_REGION)
+        pred_unpadded = center_crop(pred_stitched, height, width, image = False)
+        pred_unpadded = pred_unpadded[:,:,0]
+
+        # TODO: see how this score can be used together with uncertainty measures above!!!
+
+        # superpixel_scores = get_superpixel_scores(superpixels_group, pred_unpadded, config.SUPERPIXEL_SCORE)
+    
+        # # sort by prob score in ascending order; most uncertain superpixel first (whichever is close to 0.5)
+        # superpixel_scores = dict(sorted(superpixel_scores.items(), key=lambda item: item[1]))
+        # selected_superpixels, max_items = select_superpixels(total_superpixels, superpixel_scores, forest_superpixels)
+        
+    
+           
 
 
     ## Stitch pred patches back together
@@ -1058,7 +1129,7 @@ def ann_to_labels(png_image, TEST_REGION):
     return final_arr
 
 
-def train(TEST_REGION, entropy, probability, transformation_agg, superpixel_agg, student_id):
+def train(TEST_REGION, entropy, probability, transformation_agg, superpixel_agg, student_id, al_cycle, al_iters):
     student_id = student_id.strip()
 
     print("Retraining the Model with new labels")
@@ -1104,7 +1175,16 @@ def train(TEST_REGION, entropy, probability, transformation_agg, superpixel_agg,
 
 
     model = EvaNet(config.BATCH_SIZE, config.IN_CHANNEL, config.N_CLASSES, ultrasmall = True).to(DEVICE)
-    optimizer = SGD(model.parameters(), lr = 1e-7)
+    cod_model = EvaNet(config.BATCH_SIZE, config.IN_CHANNEL, config.N_CLASSES, ultrasmall = True).to(DEVICE)
+    ema_model = EvaNet(config.BATCH_SIZE, config.IN_CHANNEL, config.N_CLASSES, ultrasmall = True).to(DEVICE)
+    backbone_net = EvaNet(config.BATCH_SIZE, config.IN_CHANNEL, config.N_CLASSES, ultrasmall = True).to(DEVICE)
+
+    optimizer = SGD(models['original'].parameters(), lr = 1e-7)
+    optimizer_backbone = SGD(models['backbone'].parameters(), lr = 1e-7)
+
+    models = {'original': model, 'backbone': backbone_net, 'ema': ema_model, 'cod': cod_model}
+    optimizers = {'original': optimizer, 'backbone': optimizer_backbone}
+    
     criterion = ElevationLoss()
     elev_eval = Evaluator()
 
@@ -1117,6 +1197,13 @@ def train(TEST_REGION, entropy, probability, transformation_agg, superpixel_agg,
         resume_epoch = 0
     
     model_path = f"./users/{student_id}/saved_models_al/Region_{TEST_REGION}_TEST/saved_model_AL_{resume_epoch}.ckpt"
+
+    # load COD model 
+    if al_cycle > 0:
+        model_path_last_cycle = f"./users/{student_id}/saved_models_al/Region_{TEST_REGION}_TEST/saved_model_AL_cycle_{al_cycle}.ckpt"
+        checkpoint = torch.load(model_path_last_cycle, map_location=torch.device(DEVICE))
+        models['cod'].load_state_dict(checkpoint['model'])
+
     if not os.path.exists(model_path):
         print("Model path doesn't exist; using pretrained model!!!")
         model_path = f"./saved_models_al/initial_model/Region_{TEST_REGION}_TEST/saved_model_al_{resume_epoch}.ckpt"
@@ -1124,7 +1211,7 @@ def train(TEST_REGION, entropy, probability, transformation_agg, superpixel_agg,
         print(f"Resuming from epoch {resume_epoch}")
 
     checkpoint = torch.load(model_path, map_location=torch.device(DEVICE))
-    model.load_state_dict(checkpoint['model'])
+    models['original'].load_state_dict(checkpoint['model'])
 
     updated_labels = ann_to_labels(f'./users/{student_id}/output/R{TEST_REGION}_labels.png', TEST_REGION)
 
@@ -1148,16 +1235,20 @@ def train(TEST_REGION, entropy, probability, transformation_agg, superpixel_agg,
 
     total_epochs = resume_epoch + config.EPOCHS
 
+    last_epoch = resume_epoch
     for epoch in range(resume_epoch, total_epochs):
         print(f"EPOCH: {epoch+1}/{total_epochs} \r")
 
-        ## Model gets set to training mode
-        model.train()
+        ## Models gets set to training mode
+        models['original'].train()
+        models['backbone'].train()
+        models['ema'].train()
+
         al_loss = 0 
 
         for data_dict in tqdm(al_loader):
 
-            ## Retrieve data from data dict and send to deivce
+            al_iters += 1
 
             ## RGB data
             rgb_data = data_dict['rgb_data'].float().to(DEVICE)
@@ -1178,7 +1269,9 @@ def train(TEST_REGION, entropy, probability, transformation_agg, superpixel_agg,
             labels.requires_grad = False  
 
             ## Get model prediction
-            pred = model(rgb_data, norm_elev_data)
+            pred = models['original'](rgb_data, norm_elev_data)
+            pred_backbone = models['backbone'](rgb_data, norm_elev_data)
+            pred_ema = models['ema'](rgb_data, norm_elev_data)
             
             rgb_data_flipx = torch.flip(rgb_data, dims=(-1,))
             rgb_data_flipy = torchvision.transforms.functional.vflip(rgb_data)
@@ -1203,12 +1296,6 @@ def train(TEST_REGION, entropy, probability, transformation_agg, superpixel_agg,
             pred_rot90_inv = torchvision.transforms.functional.rotate(pred_rot90, angle=270)
             pred_rot180_inv = torchvision.transforms.functional.rotate(pred_rot180, angle=180)
             pred_rot270_inv = torchvision.transforms.functional.rotate(pred_rot270, angle=90)
-            
-            # elev_data_flipx = torch.flip(elev_data, dims=(-1,))
-            # elev_data_flipy = torchvision.transforms.functional.vflip(elev_data)
-            # elev_data_rot90 = torchvision.transforms.functional.rotate(elev_data, angle=90)
-            # elev_data_rot180 = torchvision.transforms.functional.rotate(elev_data, angle=180)
-            # elev_data_rot270 = torchvision.transforms.functional.rotate(elev_data, angle=270)
 
             ## Backprop Loss
             loss1 = criterion.forward(pred, elev_data, labels)
@@ -1217,139 +1304,57 @@ def train(TEST_REGION, entropy, probability, transformation_agg, superpixel_agg,
             loss4 = criterion.forward(pred_rot90_inv, elev_data, labels)
             loss5 = criterion.forward(pred_rot180_inv, elev_data, labels)
             loss6 = criterion.forward(pred_rot270_inv, elev_data, labels)
-#                 loss = criterion.forward(avg_pred, elev_data, labels)
-            ##print("Loss: ", loss.item())
 
             # flip and rotate; add all 6
             all_logits = [pred, pred_flipx_inv, pred_flipy_inv, pred_rot90_inv, pred_rot180_inv, pred_rot270_inv]
 
-            # TODO: calculate L(self-consistency) based on eqn 5(c) EquAL
-            loss_sc = loss_self_consistency(all_logits, labels)
-#             total_loss = loss1 + loss2 + loss3 + loss4 + loss5 + loss6 + loss_sc
-            total_loss = (loss1 + loss2 + loss3 + loss4 + loss5 + loss6)/6 + loss_sc
-            # total_loss = loss1 + loss_sc
+            # Calculate 3 loss and aggregate them
+            supervised_loss = (loss1 + loss2 + loss3 + loss4 + loss5 + loss6)/6
+            self_consistency_loss = loss_self_consistency(all_logits, labels)
+            ema_loss = F.mse_loss(pred_backbone, pred_ema) # TODO: check for labeled and unlabeled pixel's loss
+
+            total_loss = supervised_loss + config.LAMBDA_1 * self_consistency_loss + config.LAMBDA_2 * ema_loss # TODO: these hyperparams should be tuned
 
             # backpropagate the total loss
-#             loss.backward()
+            optimizers['original'].zero_grad()
+            optimizers['backbone'].zero_grad()
+
             total_loss.backward()
-            optimizer.step()
+
+            optimizers['original'].step()
+            optimizers['backbone'].step()
 
             ## Record loss for batch
-#             al_loss += loss.item()
             al_loss += total_loss.item()
+
+            update_ema_variables(models['backbone'], models['ema'], 0.999, al_iters)
 
         al_loss /= len(al_loader)
         al_loss_dict[epoch+1] = al_loss
+        last_epoch = epoch + 1
         print(f"Epoch: {epoch+1} AL Loss: {al_loss}" )
-        
-        #=====================================================================================
+
+    # Skipping model validation, just save model after all the epochs are trained
+    print("Saving Model")
+    torch.save({'epoch': last_epoch,  # when resuming, we will start at the next epoch
+                'model': models['original'].state_dict(),
+                'optimizer': optimizers['original'].state_dict()}, 
+                f"./users/{student_id}/saved_models_al/Region_{TEST_REGION}_TEST/saved_model_AL_{last_epoch}.ckpt")
     
-        ## Do model validation for epochs that match VAL_FREQUENCY
-        if (epoch+1)%VAL_FREQUENCY == 0:    
-
-            ## Model gets set to evaluation mode
-            model.eval()
-            val_loss = 0 
-
-            print("Starting Evaluation")
-
-            for data_dict in tqdm(al_loader):
-
-                ## RGB data
-                rgb_data = data_dict['rgb_data'].float().to(DEVICE)
-                ## Elevation data
-                elev_data = data_dict['elev_data'].float().to(DEVICE)
-                norm_elev_data = data_dict['norm_elev_data'].float().to(DEVICE)
-                ## Data labels
-                labels = data_dict['labels'].float().to(DEVICE)
-
-                ## Get model prediction
-                pred = model(rgb_data, norm_elev_data)
-                
-                # TODO: flip and rotate
-                rgb_data_flipx = torch.flip(rgb_data, dims=(-1,))
-                rgb_data_flipy = torchvision.transforms.functional.vflip(rgb_data)
-                rgb_data_rot90 = torchvision.transforms.functional.rotate(rgb_data, angle=90)
-                rgb_data_rot180 = torchvision.transforms.functional.rotate(rgb_data, angle=180)
-                rgb_data_rot270 = torchvision.transforms.functional.rotate(rgb_data, angle=270)
-
-                norm_elev_data_flipx = torch.flip(norm_elev_data, dims=(-1,))
-                norm_elev_data_flipy = torchvision.transforms.functional.vflip(norm_elev_data)
-                norm_elev_data_rot90 = torchvision.transforms.functional.rotate(norm_elev_data, angle=90)
-                norm_elev_data_rot180 = torchvision.transforms.functional.rotate(norm_elev_data, angle=180)
-                norm_elev_data_rot270 = torchvision.transforms.functional.rotate(norm_elev_data, angle=270)
-
-                pred_flipx = model(rgb_data_flipx, norm_elev_data_flipx) # get pred for horizontal flip
-                pred_flipy = model(rgb_data_flipy, norm_elev_data_flipy) # get pred for horizontal flip
-                pred_rot90 = model(rgb_data_rot90, norm_elev_data_rot90) # get pred for horizontal flip
-                pred_rot180 = model(rgb_data_rot180, norm_elev_data_rot180) # get pred for horizontal flip
-                pred_rot270 = model(rgb_data_rot270, norm_elev_data_rot270) # get pred for horizontal flip
-
-                pred_flipx_inv = torch.flip(pred_flipx, dims=(-1,)) # flip back to original orientation
-                pred_flipy_inv = torchvision.transforms.functional.vflip(pred_flipy) # flip back to original orientation
-                pred_rot90_inv = torchvision.transforms.functional.rotate(pred_rot90, angle=270)
-                pred_rot180_inv = torchvision.transforms.functional.rotate(pred_rot180, angle=180)
-                pred_rot270_inv = torchvision.transforms.functional.rotate(pred_rot270, angle=90)
-
-#                 elev_data_flipx = torch.flip(elev_data, dims=(-1,))
-#                 elev_data_flipy = torchvision.transforms.functional.vflip(elev_data)
-#                 elev_data_rot90 = torchvision.transforms.functional.rotate(elev_data, angle=90)
-#                 elev_data_rot180 = torchvision.transforms.functional.rotate(elev_data, angle=180)
-#                 elev_data_rot270 = torchvision.transforms.functional.rotate(elev_data, angle=270)
-
-                ## Backprop Loss
-                loss1 = criterion.forward(pred, elev_data, labels)
-                loss2 = criterion.forward(pred_flipx_inv, elev_data, labels)
-                loss3 = criterion.forward(pred_flipy_inv, elev_data, labels)
-                loss4 = criterion.forward(pred_rot90_inv, elev_data, labels)
-                loss5 = criterion.forward(pred_rot180_inv, elev_data, labels)
-                loss6 = criterion.forward(pred_rot270_inv, elev_data, labels)
-    #                 loss = criterion.forward(avg_pred, elev_data, labels)
-                ##print("Loss: ", loss.item())
-
-                # flip and rotate; add all 6
-                all_logits = [pred, pred_flipx_inv, pred_flipy_inv, pred_rot90_inv, pred_rot180_inv, pred_rot270_inv]
-
-                # TODO: calculate L(self-consistency) based on eqn 5(c) EquAL
-                loss_sc = loss_self_consistency(all_logits, labels)
-#                 total_loss = loss1 + loss2 + loss3 + loss4 + loss5 + loss6 + loss_sc
-                total_loss = (loss1 + loss2 + loss3 + loss4 + loss5 + loss6)/6 + loss_sc
-                # total_loss = loss1 + loss_sc
-
-                ## Record loss for batch
-#                 val_loss += loss.item()
-                val_loss += total_loss.item()
-
-                ## Remove pred and GT from GPU and convert to np array
-#                 pred_labels_np = avg_pred.detach().cpu().numpy() 
-#                 gt_labels_np = labels.detach().cpu().numpy()
-
-            val_loss /= len(al_loader)
-            val_loss_dict[epoch+1] = val_loss
-            print(f"Epoch: {epoch+1} Validation Loss: {val_loss}" )
-            
-            
-#             early_stop = EarlyStopping(patience=5)
-            
-            early_stop(val_loss)
-            if early_stop.early_stop:
-                print('Early stop!')
-                break
-                
-            if val_loss < min_val_loss:
-                resume_epoch = epoch + 1
-                min_val_loss = val_loss
-                print("Saving Model")
-                torch.save({'epoch': epoch + 1,  # when resuming, we will start at the next epoch
-                            'model': model.state_dict(),
-                            'optimizer': optimizer.state_dict()}, 
-                            f"./users/{student_id}/saved_models_al/Region_{TEST_REGION}_TEST/saved_model_AL_{epoch+1}.ckpt")
     
     with open(f"./users/{student_id}/resume_epoch/R{TEST_REGION}.txt", 'w') as file:
-        file.write(str(resume_epoch))
+        file.write(str(last_epoch))
+
+    with open(f"./users/{student_id}/al_iters/R{TEST_REGION}.txt", 'w') as file:
+        file.write(str(al_iters))
     
     # call AL pipeline once the model is retrained
-    recommend_superpixels(TEST_REGION, config.ENTROPY, config.PROBABILITY, transformation_agg, superpixel_agg, student_id)
+    recommend_superpixels(TEST_REGION, config.ENTROPY, config.PROBABILITY, transformation_agg, superpixel_agg, student_id, al_cycle)
+
+    torch.save({'epoch': last_epoch,  # when resuming, we will start at the next epoch
+                'model': models['backbone'].state_dict(),
+                'optimizer': optimizers['backbone'].state_dict()}, 
+                f"./users/{student_id}/saved_models_al/Region_{TEST_REGION}_TEST/saved_model_AL_cycle_{al_cycle}.ckpt")
     
     return
 
