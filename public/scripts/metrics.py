@@ -29,7 +29,8 @@ class Evaluator():
     
     def run_eval(self, pred_unpadded, gt_labels):
         
-        cm = confusion_matrix(gt_labels.flatten(), pred_unpadded.flatten(), labels = [0, 1, -1])
+        # cm = confusion_matrix(gt_labels.flatten(), pred_unpadded.flatten(), labels = [0, 1, -1])
+        cm = confusion_matrix(gt_labels.flatten(), pred_unpadded.flatten(), labels = [-1, 1, 0])
         TP_0 = cm[0][0]
         FP_0 = cm[1][0]
         FN_0 = cm[0][1]

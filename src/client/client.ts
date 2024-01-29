@@ -159,50 +159,51 @@ let _readstateFile = async (array: any[]) => {
 }
 const persLoader = new THREE.TextureLoader()
 
-;(document.getElementById('upload') as HTMLElement).oninput = () => {
-    if ((document.getElementById('upload') as HTMLInputElement).files) {
-        let file = (document.getElementById('upload') as HTMLInputElement).files![0]
-        ;(document.getElementById('loader') as HTMLElement).style.display = 'block'
-        ;(document.getElementById('modal-wrapper') as HTMLElement).style.display = 'none'
-        var fr = new FileReader()
+// Load Annotation from checkpoint or Image
+// ;(document.getElementById('upload') as HTMLElement).oninput = () => {
+//     if ((document.getElementById('upload') as HTMLInputElement).files) {
+//         let file = (document.getElementById('upload') as HTMLInputElement).files![0]
+//         ;(document.getElementById('loader') as HTMLElement).style.display = 'block'
+//         ;(document.getElementById('modal-wrapper') as HTMLElement).style.display = 'none'
+//         var fr = new FileReader()
 
-        if (file.type == "application/json") {
-            fr.onload = async function (e) {
-                var result = JSON.parse(e.target!.result as string)
-                // console.log(result)
-                await _readstateFile(result)
-                ;(document.getElementById('loader') as HTMLElement).style.display = 'none'
-                ;(document.getElementById('modal-wrapper') as HTMLElement).style.display = 'block'
-            }
-            fr.readAsText(file)
+//         if (file.type == "application/json") {
+//             fr.onload = async function (e) {
+//                 var result = JSON.parse(e.target!.result as string)
+//                 // console.log(result)
+//                 await _readstateFile(result)
+//                 ;(document.getElementById('loader') as HTMLElement).style.display = 'none'
+//                 ;(document.getElementById('modal-wrapper') as HTMLElement).style.display = 'block'
+//             }
+//             fr.readAsText(file)
             
-        } else if (file.type == "image/png") {
-            fr.onload = async function (e) {
-                let image = document.createElement('img')
-                image.src = e.target!.result as string
-                // console.log(regionDimensions[0], regionDimensions[1], image.width, image.height)
-                image.onload = function() {
-                    if (image.width == regionDimensions[0] && image.height == regionDimensions[1]) {
-                        context!.drawImage(image, 0, 0)
-                        annotationTexture.needsUpdate = true
-                        // predictionTexture.needsUpdate = true // saugat
-                    } else {
-                        alert("Wrong dimensions for annotation image, check that the region is correct")
-                    }
-                    ;(document.getElementById('loader') as HTMLElement).style.display = 'none'
-                    ;(document.getElementById('modal-wrapper') as HTMLElement).style.display = 'block'
-                }
-            }
-            fr.readAsDataURL(file)
-        } else {
-            alert('Invalid file type, must be .png or .json!')
-            ;(document.getElementById('loader') as HTMLElement).style.display = 'none'
-            ;(document.getElementById('modal-wrapper') as HTMLElement).style.display = 'block'
-        }
+//         } else if (file.type == "image/png") {
+//             fr.onload = async function (e) {
+//                 let image = document.createElement('img')
+//                 image.src = e.target!.result as string
+//                 // console.log(regionDimensions[0], regionDimensions[1], image.width, image.height)
+//                 image.onload = function() {
+//                     if (image.width == regionDimensions[0] && image.height == regionDimensions[1]) {
+//                         context!.drawImage(image, 0, 0)
+//                         annotationTexture.needsUpdate = true
+//                         // predictionTexture.needsUpdate = true // saugat
+//                     } else {
+//                         alert("Wrong dimensions for annotation image, check that the region is correct")
+//                     }
+//                     ;(document.getElementById('loader') as HTMLElement).style.display = 'none'
+//                     ;(document.getElementById('modal-wrapper') as HTMLElement).style.display = 'block'
+//                 }
+//             }
+//             fr.readAsDataURL(file)
+//         } else {
+//             alert('Invalid file type, must be .png or .json!')
+//             ;(document.getElementById('loader') as HTMLElement).style.display = 'none'
+//             ;(document.getElementById('modal-wrapper') as HTMLElement).style.display = 'block'
+//         }
 
-        ;(document.getElementById('upload') as HTMLInputElement).files = null
-    }
-}
+//         ;(document.getElementById('upload') as HTMLInputElement).files = null
+//     }
+// }
 
 // fetch(`${host}img/elevation${metaState.region}.tiff`).then((res) =>
 // fetch(`${host}img/test0.1.tiff`).then((res) =>
@@ -228,7 +229,7 @@ var segsMax: { [key: number]: number } = {}
 
 ;(document.getElementById('loader') as HTMLElement).style.display = 'none'
 ;(document.getElementById('loaderSide') as HTMLElement).style.display = 'none'
-// ;(document.getElementById('metrices') as HTMLElement).style.display = 'none'
+;(document.getElementById('metrices') as HTMLElement).style.display = 'none'
 // ;(document.getElementById('loaderTrain') as HTMLElement).style.display = 'none'
 ;(document.getElementById('modal-wrapper') as HTMLElement).style.display = 'block'
 persLoader.load(
@@ -423,17 +424,17 @@ viewFolder
 //saugat
 
 // saugat
-// viewFolder
-// .add(params, 'confidence')
-// .onChange(() => {
-//     if (params.confidence) {
-//         uniforms.confidence.value = 1
-//     } else {
-//         uniforms.confidence.value = 0
-//     }
-// })
-// .name('Show Forest Prediction')
-// //saugat
+viewFolder
+.add(params, 'confidence')
+.onChange(() => {
+    if (params.confidence) {
+        uniforms.confidence.value = 1
+    } else {
+        uniforms.confidence.value = 0
+    }
+})
+.name('Show Forest Prediction')
+//saugat
 
 
 let sizeMap = {
@@ -1272,23 +1273,22 @@ const onKeyPress = (event: KeyboardEvent) => {
         let [x, y_orig] = performRayCasting()
 
         let y: any = regionDimensions[1] - 1 - y_orig // y is height, x is width
-        BFSHandler(x, y, params.flood, params.clear)
+        // BFSHandler(x, y, params.flood, params.clear)
 
         const pixelIndex = y * regionDimensions[0] + x
         const pixelVal = forestJson[pixelIndex]
         
-        // TODO: uncomment after demo recording
-        // // console.log("pixelVal: ", pixelVal)
-        // if (pixelVal == 0){
-        //     // y = regionDimensions[1] - 1 - y
-        //     BFSHandler(x, y, params.flood, params.clear)
-        //     ;(document.getElementById('crossContainer') as HTMLElement).style.display = 'none'
-        // }
-        // else{
-        //     const clickX = x
-        //     const clickY = y_orig;
-        //     displayCrossMark(clickX, clickY);
-        // }
+
+        if (pixelVal == 0){
+            // y = regionDimensions[1] - 1 - y
+            BFSHandler(x, y, params.flood, params.clear)
+            ;(document.getElementById('crossContainer') as HTMLElement).style.display = 'none'
+        }
+        else{
+            const clickX = x
+            const clickY = y_orig;
+            displayCrossMark(clickX, clickY);
+        }
     } else if (event.key == 't' && metaState.brushSelection) {
         let [x, y] = performRayCasting()
         if (
@@ -1430,6 +1430,22 @@ async function startUp() {
 var diffuseTexture : THREE.Texture
 var texContext : CanvasRenderingContext2D
 ;document.getElementById('submit')!.addEventListener('click', function(e) {
+    let student_id = (document.getElementById('studentId') as HTMLInputElement).value
+    let testRegion = (document.getElementById('testRegion') as HTMLInputElement).value
+    
+    if (student_id == ""){
+        alert("Please provide your correct student id!")
+        ;(document.getElementById('modal-wrapper') as HTMLElement).style.display = 'block'
+        ;(document.getElementById('ui-menu') as HTMLElement).style.display = 'none'
+        return
+    }
+    else if (testRegion == ""){
+        alert("Please provide the correct Test Region ID!")
+        ;(document.getElementById('modal-wrapper') as HTMLElement).style.display = 'block'
+        ;(document.getElementById('ui-menu') as HTMLElement).style.display = 'none'
+        return
+    }
+
     e.preventDefault()
     if ((document.getElementById('stl') as HTMLInputElement).files![0]) {
         let file = (document.getElementById('stl') as HTMLInputElement).files![0]
@@ -1460,7 +1476,7 @@ var texContext : CanvasRenderingContext2D
                     predCanvas.width = image.width
                     predCanvas.height = image.height
                     predContext = predCanvas.getContext('2d')!
-
+                    
                     // var superpixelCanvas = document.createElement('canvas')
                     superpixelCanvas.width = image.width
                     superpixelCanvas.height = image.height
@@ -1490,14 +1506,16 @@ var texContext : CanvasRenderingContext2D
                         fragmentShader: terrainShader._FS,
                     })
                     texContext.drawImage(image, 0, 0)
-                    if (!(document.getElementById("topology") as HTMLInputElement).checked) {
-                        var imageData = texContext!.getImageData(0, 0, image.width, image.height).data
-                        let temp = []
-                        for (let i = 0; i < imageData.length; i+=4) {
-                            temp.push(imageData[i])
-                        }
-                        data = {0: temp}
+
+                    // if (!(document.getElementById("topology") as HTMLInputElement).checked) {
+                    var imageData = texContext!.getImageData(0, 0, image.width, image.height).data
+                    let temp = []
+                    for (let i = 0; i < imageData.length; i+=4) {
+                        temp.push(imageData[i])
                     }
+                    data = {0: temp}
+                    // }f
+
                     diffuseTexture.needsUpdate = true
                     annotationTexture.needsUpdate = true
                     // predictionTexture.needsUpdate = true // saugat
@@ -1505,7 +1523,7 @@ var texContext : CanvasRenderingContext2D
                     var formData = new FormData();
                     formData.append('file', file);
                     ajax({
-                        url: 'http://127.0.0.1:5000/stl',
+                        url: `http://127.0.0.1:5000/stl?testRegion=${testRegion}`,
                         type: 'POST',
                         data: formData,
                         processData: false,
@@ -1544,11 +1562,18 @@ var texContext : CanvasRenderingContext2D
                                 if (uniforms.minSuperpixel.value){
                                     superpixel_agg = 'min'
                                 }
+
+                                testRegion = encodeURIComponent(testRegion);
+                                student_id = encodeURIComponent(student_id);
+
                                 const superpixelBuffer = await fetch(`http://127.0.0.1:5000/superpixel?recommend=${1}
                                                                             &entropy=${uniforms.entropy.value}
                                                                             &probability=${uniforms.probability.value}
                                                                             &transformation_agg=${transformation_agg}
-                                                                            &superpixel_agg=${superpixel_agg}`).then(response => response.arrayBuffer());
+                                                                            &superpixel_agg=${superpixel_agg}
+                                                                            &taskId=${student_id}
+                                                                            &testRegion=${testRegion}
+                                                                            `).then(response => response.arrayBuffer());
 
                                 console.log("superpixelBuffer: ", superpixelBuffer)
 
@@ -1576,12 +1601,12 @@ var texContext : CanvasRenderingContext2D
                                 superpixelContext!.drawImage(imgSuperpixel, 0, 0);
                                 superpixelTexture.needsUpdate = true // saugat
 
-                                const metrices_response = await fetch(`http://127.0.0.1:5000/metrics-json`);
+                                const metrices_response = await fetch(`http://127.0.0.1:5000/metrics-json?taskId=${student_id}&testRegion=${testRegion}`);
                                 metrices = await metrices_response.json();
                                 console.log("metrices: ", metrices)
 
 
-                                const predBuffer = await fetch('http://127.0.0.1:5000/pred').then(response => response.arrayBuffer());
+                                const predBuffer = await fetch(`http://127.0.0.1:5000/pred?taskId=${student_id}&testRegion=${testRegion}`).then(response => response.arrayBuffer());
                                 console.log("arraybuffer: ", predBuffer)
 
                                 // Convert ArrayBuffer to base64
@@ -1611,11 +1636,11 @@ var texContext : CanvasRenderingContext2D
                                     // document.body.appendChild(predCanvas);
                                 };
                                 
-                                const forestResponse = await fetch('http://127.0.0.1:5000/forest-json');
+                                const forestResponse = await fetch(`http://127.0.0.1:5000/forest-json?testRegion=${testRegion}`);
                                 forestJson = await forestResponse.json();
                                 console.log("forestJson: ", forestJson)
 
-                                const confidenceBuffer = await fetch('http://127.0.0.1:5000/confidence').then(response => response.arrayBuffer());
+                                const confidenceBuffer = await fetch(`http://127.0.0.1:5000/confidence?testRegion=${testRegion}`).then(response => response.arrayBuffer());
                                 console.log("confidenceBuffer: ", confidenceBuffer)
 
                                 // // forestArray = new DataView(confidenceBuffer);
@@ -1687,7 +1712,7 @@ var texContext : CanvasRenderingContext2D
                                 jsonContainer.appendChild(preElement);
                                 
 
-                                // ;(document.getElementById('metrices') as HTMLElement).style.display = 'block'
+                                ;(document.getElementById('metrices') as HTMLElement).style.display = 'block'
                             } else {
                                 console.log('jsonContainer not found.');
                             }
@@ -1710,82 +1735,84 @@ var texContext : CanvasRenderingContext2D
     } else {
         alert('No data uploaded!')
     }
-    if ((document.getElementById('data') as HTMLInputElement).files![0] && (document.getElementById('topology') as HTMLInputElement).checked) {
-        let file = (document.getElementById('data') as HTMLInputElement).files![0]
-        if (file.type == "image/tiff") {
-            ;(document.getElementById('loader') as HTMLElement).style.display = 'block'
-            ;(document.getElementById('modal-wrapper') as HTMLElement).style.display = 'none'
-            var formData = new FormData();
-            formData.append('file', file);
-            ajax({
-                url: 'http://127.0.0.1:5000/topology',
-                type: 'POST',
-                data: formData,
-                processData: false,
-                contentType: false,
-                dataType: 'json',
-                success: async function(d) {
-                    console.log(d)
-                    data = d['data']
-                    for (var i = 0; i < pers.length; i++) {
-                        var thresh = pers[i]
-                        persDatas[thresh] = new Int16Array(d['segmentation'][thresh])
-                        var max = 0
-                        var imageData = new Uint8Array(4 * persDatas[thresh].length)
-                        // segsToPixels2[thresh] = {}
-                        var imageData2 = new Uint8Array(4 * data[thresh].length)
-                        for (var x = 0; x < regionDimensions[0]; x++) {
-                            for (var y = 0; y < regionDimensions[1]; y++) {
-                                var segID = persDatas[thresh][x + y * regionDimensions[0]]
-                                if (segID > max) {
-                                    max = segID
-                                }
-                                imageData[(x + (regionDimensions[1] - y - 1) * regionDimensions[0]) * 4] = Math.floor(segID / 1000)
-                                imageData[(x + (regionDimensions[1] - y - 1) * regionDimensions[0]) * 4 + 1] = Math.floor((segID % 1000) / 100)
-                                imageData[(x + (regionDimensions[1] - y - 1) * regionDimensions[0]) * 4 + 2] = Math.floor((segID % 100) / 10)
-                                imageData[(x + (regionDimensions[1] - y - 1) * regionDimensions[0]) * 4 + 3] = segID % 10
-                                // if (segsToPixels2[thresh][segID]) {
-                                //     segsToPixels2[thresh][segID].push(x)
-                                // } else {
-                                //     segsToPixels2[thresh][segID] = [x]
-                                // }
-                                imageData2[(x + (regionDimensions[1] - y - 1) * regionDimensions[0]) * 4] = Math.floor(255 * data[thresh][y * regionDimensions[0] + x])
-                                imageData2[(x + (regionDimensions[1] - y - 1) * regionDimensions[0]) * 4 + 1] = Math.floor(255 * data[thresh][y * regionDimensions[0] + x])
-                                imageData2[(x + (regionDimensions[1] - y - 1) * regionDimensions[0]) * 4 + 2] = Math.floor(255 * data[thresh][y * regionDimensions[0] + x])
-                                imageData2[(x + (regionDimensions[1] - y - 1) * regionDimensions[0]) * 4 + 3] = 255
-                            }
-                        }
-                        segsMax[thresh] = max
-                        persTextures[thresh] = new THREE.DataTexture(
-                            imageData,
-                            regionDimensions[0],
-                            regionDimensions[1]
-                        )
-                        persTextures[thresh].needsUpdate = true
-                        dataTextures[thresh] = new THREE.DataTexture(
-                            imageData2,
-                            regionDimensions[0],
-                            regionDimensions[1]
-                        )
-                        dataTextures[thresh].needsUpdate = true
-                    } 
-                    uniforms.dataTexture.value = dataTextures[persVal]
-                    uniforms.persTexture.value = persTextures[persVal]
-                    uniforms.segsMax.value = segsMax[persVal]
-                    ;(document.getElementById('loader') as HTMLElement).style.display = 'none'
-                    ;(document.getElementById('modal-wrapper') as HTMLElement).style.display = 'block'
-                },
-                error: function(xhr, status, error) {
-                    console.log(xhr)
-                    ;(document.getElementById('loader') as HTMLElement).style.display = 'none'
-                    ;(document.getElementById('modal-wrapper') as HTMLElement).style.display = 'block'
-                    console.log('Error uploading file: ' + error)
-                }
-            });
-        } else {
-            alert('Invalid file type, must be .tiff for data!')
-        }
-    } 
+
+    // if ((document.getElementById('data') as HTMLInputElement).files![0] && (document.getElementById('topology') as HTMLInputElement).checked) {
+    //     let file = (document.getElementById('data') as HTMLInputElement).files![0]
+    //     if (file.type == "image/tiff") {
+    //         ;(document.getElementById('loader') as HTMLElement).style.display = 'block'
+    //         ;(document.getElementById('modal-wrapper') as HTMLElement).style.display = 'none'
+    //         var formData = new FormData();
+    //         formData.append('file', file);
+    //         ajax({
+    //             url: 'http://127.0.0.1:5000/topology',
+    //             type: 'POST',
+    //             data: formData,
+    //             processData: false,
+    //             contentType: false,
+    //             dataType: 'json',
+    //             success: async function(d) {
+    //                 console.log(d)
+    //                 data = d['data']
+    //                 for (var i = 0; i < pers.length; i++) {
+    //                     var thresh = pers[i]
+    //                     persDatas[thresh] = new Int16Array(d['segmentation'][thresh])
+    //                     var max = 0
+    //                     var imageData = new Uint8Array(4 * persDatas[thresh].length)
+    //                     // segsToPixels2[thresh] = {}
+    //                     var imageData2 = new Uint8Array(4 * data[thresh].length)
+    //                     for (var x = 0; x < regionDimensions[0]; x++) {
+    //                         for (var y = 0; y < regionDimensions[1]; y++) {
+    //                             var segID = persDatas[thresh][x + y * regionDimensions[0]]
+    //                             if (segID > max) {
+    //                                 max = segID
+    //                             }
+    //                             imageData[(x + (regionDimensions[1] - y - 1) * regionDimensions[0]) * 4] = Math.floor(segID / 1000)
+    //                             imageData[(x + (regionDimensions[1] - y - 1) * regionDimensions[0]) * 4 + 1] = Math.floor((segID % 1000) / 100)
+    //                             imageData[(x + (regionDimensions[1] - y - 1) * regionDimensions[0]) * 4 + 2] = Math.floor((segID % 100) / 10)
+    //                             imageData[(x + (regionDimensions[1] - y - 1) * regionDimensions[0]) * 4 + 3] = segID % 10
+    //                             // if (segsToPixels2[thresh][segID]) {
+    //                             //     segsToPixels2[thresh][segID].push(x)
+    //                             // } else {
+    //                             //     segsToPixels2[thresh][segID] = [x]
+    //                             // }
+    //                             imageData2[(x + (regionDimensions[1] - y - 1) * regionDimensions[0]) * 4] = Math.floor(255 * data[thresh][y * regionDimensions[0] + x])
+    //                             imageData2[(x + (regionDimensions[1] - y - 1) * regionDimensions[0]) * 4 + 1] = Math.floor(255 * data[thresh][y * regionDimensions[0] + x])
+    //                             imageData2[(x + (regionDimensions[1] - y - 1) * regionDimensions[0]) * 4 + 2] = Math.floor(255 * data[thresh][y * regionDimensions[0] + x])
+    //                             imageData2[(x + (regionDimensions[1] - y - 1) * regionDimensions[0]) * 4 + 3] = 255
+    //                         }
+    //                     }
+    //                     segsMax[thresh] = max
+    //                     persTextures[thresh] = new THREE.DataTexture(
+    //                         imageData,
+    //                         regionDimensions[0],
+    //                         regionDimensions[1]
+    //                     )
+    //                     persTextures[thresh].needsUpdate = true
+    //                     dataTextures[thresh] = new THREE.DataTexture(
+    //                         imageData2,
+    //                         regionDimensions[0],
+    //                         regionDimensions[1]
+    //                     )
+    //                     dataTextures[thresh].needsUpdate = true
+    //                 } 
+    //                 uniforms.dataTexture.value = dataTextures[persVal]
+    //                 uniforms.persTexture.value = persTextures[persVal]
+    //                 uniforms.segsMax.value = segsMax[persVal]
+    //                 ;(document.getElementById('loader') as HTMLElement).style.display = 'none'
+    //                 ;(document.getElementById('modal-wrapper') as HTMLElement).style.display = 'block'
+    //             },
+    //             error: function(xhr, status, error) {
+    //                 console.log(xhr)
+    //                 ;(document.getElementById('loader') as HTMLElement).style.display = 'none'
+    //                 ;(document.getElementById('modal-wrapper') as HTMLElement).style.display = 'block'
+    //                 console.log('Error uploading file: ' + error)
+    //             }
+    //         });
+    //     } else {
+    //         alert('Invalid file type, must be .tiff for data!')
+    //     }
+    // } 
+
     if ((document.getElementById('texture') as HTMLInputElement).files![0]) {
         let file = (document.getElementById('texture') as HTMLInputElement).files![0]
         if (file.type == "image/png") {

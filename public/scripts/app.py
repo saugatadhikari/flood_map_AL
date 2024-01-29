@@ -61,11 +61,13 @@ target = os.path.join(APP_ROOT, app.config["UPLOAD_FOLDER"])
 
 @app.route('/stl', methods=['POST'])
 def stl():
+    TEST_REGION = int(request.args.get('testRegion', 1))
     if request.method == 'POST':
         f = request.files['file']
         f.save(f.filename)
 #         subprocess.check_output(['./hmm', f.filename, 'a.stl', '-z', '500', '-t', '10000000'])
-        payload = make_response(send_file('a.stl'))
+        print("testRegion: ", TEST_REGION)
+        payload = make_response(send_file(f'./stl/Region_{TEST_REGION}.stl'))
         payload.headers.add('Access-Control-Allow-Origin', '*')
         # os.remove('a.stl')
         # os.remove(f.filename)
@@ -79,54 +81,41 @@ def superpixel():
     entropy = int(request.args.get('entropy', 0))
     probability = int(request.args.get('probability', 0))
 
-    transformation_agg = request.args.get('transformation_agg')
-    superpixel_agg = request.args.get('superpixel_agg')
+    transformation_agg = request.args.get('transformation_agg').strip()
+    superpixel_agg = request.args.get('superpixel_agg').strip()
+
+    student_id = request.args.get('taskId').strip()
+    TEST_REGION = int(request.args.get('testRegion', 1))
 
     print(entropy, probability)
     print(superpixel_agg, transformation_agg)
+    print(student_id)
 
-    TEST_REGION = 1 # TODO: this should be received from frontend
     metrices = {}
     if int(recommend):
-        metrices = recommend_superpixels(TEST_REGION, entropy, probability, transformation_agg, superpixel_agg)
+        metrices = recommend_superpixels(TEST_REGION, entropy, probability, transformation_agg, superpixel_agg, student_id)
     
-    payload = make_response(send_file('R1_superpixels_test.png'))
+    payload = make_response(send_file(f'./users/{student_id}/output/R{TEST_REGION}_superpixels_test.png'))
     payload.headers.add('Access-Control-Allow-Origin', '*')
-
-    # # Create a response with the file and JSON data
-    # payload = make_response()
-
-    # # Set the file part of the response
-    # file_path = 'R1_superpixels_test.png'
-    # payload.headers['Content-Disposition'] = f'attachment; filename={file_path}'
-    # payload.headers['Content-Type'] = 'text/plain'
-    # payload.headers.add('Access-Control-Allow-Origin', '*')
-    # payload.set_data(open(file_path, 'rb').read())
-
-    # # Attach JSON data to the response
-    # payload.json = metrices
 
     return payload
 
 
 @app.route('/pred')
 def pred():
-    payload = make_response(send_file('R1_pred_test.png'))
+    TEST_REGION = int(request.args.get('testRegion', 1))
+    student_id = request.args.get('taskId')
+
+    payload = make_response(send_file(f'./users/{student_id}/output/R{TEST_REGION}_pred_test.png'))
     payload.headers.add('Access-Control-Allow-Origin', '*')
     return payload
 
 
 @app.route('/confidence')
 def confidence():
-    # forest_arr = cv2.imread('R1_forest.png')
-    # list_data = forest_arr.tolist()
-    # json_data = {}
-    # for i in range(forest_arr.shape[0]):
-    #     for j in range(forest_arr.shape[1]):
-    #         index = i * forest_arr.shape[1] + j
-    #         json_data[index] = list_data[i][j][1]
+    TEST_REGION = int(request.args.get('testRegion', 1))
 
-    payload = make_response(send_file('R1_forest.png'))
+    payload = make_response(send_file(f'./data_al/forest/R{TEST_REGION}_forest.png'))
     # payload.json = json_data
     payload.headers.add('Access-Control-Allow-Origin', '*')
 
@@ -134,7 +123,7 @@ def confidence():
 
 @app.route('/forest-json', methods=['GET'])
 def forest_json():
-    TEST_REGION = 1
+    TEST_REGION = int(request.args.get('testRegion', 1))
     file_path = f"./data_al/forest/Region_{TEST_REGION}_forest_json.json"
 
     forests = {}
@@ -142,35 +131,24 @@ def forest_json():
         forests = json.load(json_file)
 
     payload = make_response(jsonify(forests), 200)
-    # payload.json = json_data
     payload.headers.add('Access-Control-Allow-Origin', '*')
-
-
-    # forest_arr = cv2.imread('R1_forest.png')
-    # list_data = forest_arr.tolist()
-    # json_data = {}
-    # for i in range(forest_arr.shape[0]):
-    #     for j in range(forest_arr.shape[1]):
-    #         index = i * forest_arr.shape[1] + j
-    #         json_data[index] = list_data[i][j][1]
-
-    # payload = make_response(jsonify(json_data), 200)
-    # # payload.json = json_data
-    # payload.headers.add('Access-Control-Allow-Origin', '*')
 
     return payload
 
 @app.route('/metrics-json', methods=['GET'])
 def metrics_json():
-    TEST_REGION = 1
-    file_path = f"./Region_{TEST_REGION}_Metrics.json"
+    TEST_REGION = int(request.args.get('testRegion', 1))
+    student_id = request.args.get('taskId').strip()
+
+    print("student_id: ", student_id)
+
+    file_path = f"./users/{student_id}/output/Region_{TEST_REGION}_Metrics.json"
 
     metrices = {}
     with open(file_path, 'r') as json_file:
         metrices = json.load(json_file)
 
     payload = make_response(jsonify(metrices), 200)
-    # payload.json = json_data
     payload.headers.add('Access-Control-Allow-Origin', '*')
 
     return payload
@@ -178,7 +156,8 @@ def metrics_json():
 
 @app.route('/retrain', methods=['POST', 'GET'])
 def retrain():
-    task_id = request.args.get('taskId')
+    TEST_REGION = int(request.args.get('testRegion', 1))
+    student_id = request.args.get('taskId').strip()
     file = request.files.get('image')
 
     entropy = int(request.args.get('entropy', 0))
@@ -192,24 +171,22 @@ def retrain():
         # file = request.files['image']
 
         # Process the file as needed, for example, save it to the server
-        file.save('./R1_labels.png')
+        file.save(f'./users/{student_id}/output/R{TEST_REGION}_labels.png')
 
-        # TODO: call train function in al.py
-        TEST_REGION = 1 # TODO: this should be received from frontend
-        train(TEST_REGION, entropy, probability, transformation_agg, superpixel_agg)
+        train(TEST_REGION, entropy, probability, transformation_agg, superpixel_agg, student_id)
 
-        payload = make_response(jsonify({'status': 'success', 'taskId': task_id}), 200)
+        payload = make_response(jsonify({'status': 'success', 'taskId': student_id}), 200)
         payload.headers.add('Access-Control-Allow-Origin', '*')
 
-        with open(f"./status_{task_id}.txt", 'w') as file:
+        with open(f"./status_{student_id}.txt", 'w') as file:
             file.write("completed")
 
         return payload
 
-    payload = make_response(jsonify({'status': 'error', 'taskId': task_id}), 400)
+    payload = make_response(jsonify({'status': 'error', 'taskId': student_id}), 400)
     payload.headers.add('Access-Control-Allow-Origin', '*')
 
-    with open(f"./status_{task_id}.txt", 'w') as file:
+    with open(f"./status_{student_id}.txt", 'w') as file:
         file.write("error")
 
     return payload
@@ -217,11 +194,13 @@ def retrain():
 
 @app.route('/check-status', methods=['GET'])
 def check_status():
-    task_id = request.args.get('taskId')
-    print("task_id: ", task_id)
+    student_id = request.args.get('taskId').strip()
+    TEST_REGION = int(request.args.get('testRegion', 1))
+
+    print("student_id: ", student_id)
 
     # logic to check the status of the task
-    with open(f"./status_{task_id}.txt", 'r') as file:
+    with open(f"./users/{student_id}/R{TEST_REGION}_status.txt", 'r') as file:
         status = file.read()
     
     print("status: ", status)

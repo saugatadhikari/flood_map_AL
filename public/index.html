@@ -28,7 +28,7 @@
         <div id="loader"></div>
         <div id="loaderSide"></div>
         <!-- <h1>Metrics:</h1> -->
-        <!-- <div id="metrices"></div> -->
+        <div id="metrices"></div>
         <div id="crossContainer"></div>
         <!-- <div id="loaderTrain"></div> -->
 
@@ -85,6 +85,13 @@
                     id="studentId"
                     name="studentId"
                     placeholder="Enter your student id"
+                />
+                <label for="testRegion">Test Region ID:</label>
+                <input
+                    type="text"
+                    id="testRegion"
+                    name="testRegion"
+                    placeholder="Enter test region id"
                 />
                 <small></small>
                 <hr />
@@ -150,14 +157,15 @@
                     </li> -->
                 </ul>
                 <label class="button_white">
-                    PNG for STL
+                    Elevation File
                     <input id="stl" type = "file" name = "file" />
                 </label>
                 <label class="button_white">
-                    PNG for Texture
+                    RGB File
                     <input id="texture" type = "file" name = "file" />
                 </label>
-                <label class="button_white">
+
+                <!-- <label class="button_white">
                     TIFF for Data
                     <input id="data" type = "file" name = "file" />
                 </label>  
@@ -168,7 +176,8 @@
                 <label class="button_white">
                     Load Annotation From Checkpoint or Image
                     <input type="file" id="upload" />
-                </label>
+                </label> -->
+
                 <button id="submit" class="button_red">Submit!</button>
                 <button id="exploration" class="button_red">Start!</button>
                 <!-- <button id="train" class="button_red">Train!</button> -->

@@ -45,6 +45,7 @@ type ObjectKeyUniforms = keyof typeof uniforms
 
 interface sessionDataType {
     name: string
+    testRegion: string
     sessionStart: Date | null
     sessionEnd: Date | null
     'totalSessionTime_M:S:MS': string
@@ -132,6 +133,7 @@ if (window.location.hash) {
     }
 }
 const regionDimensions = terrainDimensions[metaState.region]
+console.log("regionDimensions: ", regionDimensions)
 let regionBounds = [0, regionDimensions[0], 0, regionDimensions[1]]
 if (metaState.quadrant == 1) {
     regionBounds[1] = Math.floor(regionDimensions[0] / 2)
@@ -149,6 +151,7 @@ if (metaState.quadrant == 1) {
 
 const sessionData: sessionDataType = {
     name: 'anonymous',
+    testRegion: '1',
     sessionStart: null,
     sessionEnd: null,
     'totalSessionTime_M:S:MS': '0:0:0',
@@ -502,7 +505,7 @@ function showLoadingScreen(){
     ;(document.getElementById('loaderSide') as HTMLElement).style.display = 'block'
     // ;(document.getElementById('loaderTrain') as HTMLElement).style.display = 'block'
     ;(document.getElementById('modal-wrapper') as HTMLElement).style.display = 'none'
-    // ;(document.getElementById('metrices') as HTMLElement).style.display = 'none'
+    ;(document.getElementById('metrices') as HTMLElement).style.display = 'none'
 }
 
 function hideLoadingScreen(){
@@ -513,7 +516,7 @@ function hideLoadingScreen(){
 
 // Function to poll the backend
 async function pollBackendTask(taskId: string) {
-    const response = await fetch(`http://127.0.0.1:5000/check-status?taskId=${taskId}`);
+    const response = await fetch(`http://127.0.0.1:5000/check-status?taskId=${taskId}&testRegion=${sessionData.testRegion}`);
     const data = await response.json();
 
     // console.log("data: ", data)
@@ -553,7 +556,7 @@ async function pollBackendTask(taskId: string) {
         superpixelContext!.drawImage(imgSuperpixel, 0, 0);
         superpixelTexture.needsUpdate = true // saugat
 
-        const predBuffer = await fetch('http://127.0.0.1:5000/pred').then(response => response.arrayBuffer());
+        const predBuffer = await fetch(`http://127.0.0.1:5000/pred?taskId=${sessionData.name}&testRegion=${sessionData.testRegion}`).then(response => response.arrayBuffer());
         // console.log("arraybuffer: ", predBuffer)
 
         // Convert ArrayBuffer to base64
@@ -609,6 +612,7 @@ async function retrainSession(event: Event) {
     formData.append('image', dataURLFile);
 
     const taskId = encodeURIComponent(sessionData.name);
+    const testRegion = encodeURIComponent(sessionData.testRegion);
 
     // Send a POST request to the Flask backend
 
@@ -628,7 +632,9 @@ async function retrainSession(event: Event) {
                                     &entropy=${uniforms.entropy.value}
                                     &probability=${uniforms.probability.value}
                                     &transformation_agg=${transformation_agg}
-                                    &superpixel_agg=${superpixel_agg}`, {
+                                    &superpixel_agg=${superpixel_agg}
+                                    ?taskId=${taskId}
+                                    &testRegion=${testRegion}`, {
                         method: 'POST',
                         body: formData,
                     });
@@ -642,7 +648,10 @@ async function retrainSession(event: Event) {
         
 
         // Continue with other actions on the frontend
-        const superpixelBuffer = await fetch(`http://127.0.0.1:5000/superpixel?recommend=${0}`).then(response => response.arrayBuffer());
+        const superpixelBuffer = await fetch(`http://127.0.0.1:5000/superpixel?recommend=${0}
+                                                                                &taskId=${taskId}
+                                                                                &testRegion=${testRegion}
+                                                                            `).then(response => response.arrayBuffer());
         // console.log("superpixelBuffer: ", superpixelBuffer)
 
         // Convert ArrayBuffer to base64
@@ -669,11 +678,11 @@ async function retrainSession(event: Event) {
         superpixelContext!.drawImage(imgSuperpixel, 0, 0);
         superpixelTexture.needsUpdate = true // saugat
 
-        const metrices_response = await fetch(`http://127.0.0.1:5000/metrics-json`);
+        const metrices_response = await fetch(`http://127.0.0.1:5000/metrics-json?taskId=${taskId}&testRegion=${testRegion}`);
         const metrices = await metrices_response.json();
         console.log("metrices: ", metrices)
 
-        const predBuffer = await fetch('http://127.0.0.1:5000/pred').then(response => response.arrayBuffer());
+        const predBuffer = await fetch(`http://127.0.0.1:5000/pred?taskId=${taskId}&testRegion=${testRegion}`).then(response => response.arrayBuffer());
         // console.log("arraybuffer: ", predBuffer)
 
         // Convert ArrayBuffer to base64
@@ -740,7 +749,28 @@ function hideModal() {
     ;(document.getElementById('modal-wrapper') as HTMLElement).style.display = 'none'
     ;(document.getElementById('ui-menu') as HTMLElement).style.display = 'block'
     let userId = (document.getElementById('studentId') as HTMLInputElement).value
-    sessionData.name = userId
+    let testRegion = (document.getElementById('testRegion') as HTMLInputElement).value
+    console.log("testRegion: ", testRegion)
+    console.log("userId: ", userId)
+
+    if (userId == ""){
+        alert("Please provide your correct student id!")
+        ;(document.getElementById('modal-wrapper') as HTMLElement).style.display = 'block'
+        ;(document.getElementById('ui-menu') as HTMLElement).style.display = 'none'
+    }
+    else if (testRegion == ""){
+        alert("Please provide the correct Test Region ID!")
+        ;(document.getElementById('modal-wrapper') as HTMLElement).style.display = 'block'
+        ;(document.getElementById('ui-menu') as HTMLElement).style.display = 'none'
+    }
+    else{
+        sessionData.name = userId
+        sessionData.testRegion = testRegion
+    }
+
+    console.log("testRegion: ", sessionData.testRegion)
+    console.log("userId: ", sessionData.name)
+
     startSession()
 }
 

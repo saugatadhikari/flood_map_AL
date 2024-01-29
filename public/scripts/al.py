@@ -821,7 +821,24 @@ def convert_to_rgb(input_array):
     return rgb_image
 
 
-def recommend_superpixels(TEST_REGION, entropy, probability, transformation_agg, superpixel_agg):
+def recommend_superpixels(TEST_REGION, entropy, probability, transformation_agg, superpixel_agg, student_id):
+    student_id = student_id.strip()
+
+    if not os.path.exists(f"./users/{student_id}"):
+        os.mkdir(f"./users/{student_id}")
+
+    if not os.path.exists(f"./users/{student_id}/output"):
+        os.mkdir(f"./users/{student_id}/output")
+
+    if not os.path.exists(f"./users/{student_id}/saved_models_al"):
+        os.mkdir(f"./users/{student_id}/saved_models_al")
+    
+    if not os.path.exists(f"./users/{student_id}/saved_models_al/Region_{TEST_REGION}_TEST"):
+        os.mkdir(f"./users/{student_id}/saved_models_al/Region_{TEST_REGION}_TEST")
+    
+    if not os.path.exists(f"./users/{student_id}/resume_epoch"):
+        os.mkdir(f"./users/{student_id}/resume_epoch")
+
     config.ENTROPY = entropy
     config.PROBABILITY = probability
 
@@ -895,7 +912,7 @@ def recommend_superpixels(TEST_REGION, entropy, probability, transformation_agg,
 
     # read resume epoch from text file if exists
     try:
-        with open("./resume_epoch.txt", 'r') as file:
+        with open(f"./users/{student_id}/resume_epoch/R{TEST_REGION}.txt", 'r') as file:
             content = file.read()
             resume_epoch = int(content) 
     except FileNotFoundError:
@@ -919,15 +936,17 @@ def recommend_superpixels(TEST_REGION, entropy, probability, transformation_agg,
     criterion = ElevationLoss()
     elev_eval = Evaluator()
 
-    model_path = f"./saved_models_evanet/Region_{TEST_REGION}_TEST/saved_model_AL_{resume_epoch}.ckpt"
-    if os.path.exists(model_path):
-        checkpoint = torch.load(model_path, map_location=torch.device(DEVICE))
-        model.load_state_dict(checkpoint['model'])
-        pretrained_epoch = checkpoint['epoch']
-        print(f"Resuming from epoch {pretrained_epoch}")
-    # else:
-    #     print("No model found!!!")
-    #     exit(0)
+
+    model_path = f"./users/{student_id}/saved_models_al/Region_{TEST_REGION}_TEST/saved_model_AL_{resume_epoch}.ckpt"
+    if not os.path.exists(model_path):
+        print("Model path doesn't exist; using pretrained model!!!")
+        model_path = f"./saved_models_evanet/initial_model/Region_{TEST_REGION}_TEST/saved_model_AL_0.ckpt"
+    else:
+        print(f"Resuming from epoch {resume_epoch}")
+
+    checkpoint = torch.load(model_path, map_location=torch.device(DEVICE))
+    model.load_state_dict(checkpoint['model'])
+    
     
     ## Model gets set to evaluation mode
     model.eval()
@@ -964,61 +983,17 @@ def recommend_superpixels(TEST_REGION, entropy, probability, transformation_agg,
         selected_superpixels, max_items = select_superpixels(total_superpixels, superpixel_scores, forest_superpixels)
 
 
-    # if config.SC_LOSS:
-    #     pred_patches_dict, loss_patches_dict = run_pred_al_sc(model, test_loader)
-    #     _, loss_stitched = stitch_patches(loss_patches_dict, TEST_REGION, LOSS_SC=True)
-    #     loss_unpadded = center_crop(loss_stitched, height, width, image = False)
-    #     loss_unpadded = np.sum(loss_unpadded, axis=-1)
-
-    #     superpixel_scores = get_superpixel_scores(superpixels_group, loss_unpadded)
-    
-    #     # sort by prob score in ascending order; most uncertain superpixel first (whichever is close to 0.5)
-    #     superpixel_scores = dict(sorted(superpixel_scores.items(), key=lambda item: item[1]), reverse=True)
-    #     selected_superpixels, max_items = select_superpixels(total_superpixels, superpixel_scores, forest_superpixels)
-    # elif config.SC_ENTROPY:
-    #     pred_patches_dict, entropy_patches_dict = run_pred_al_entropy(model, test_loader)
-    #     _, entropy_stitched = stitch_patches(entropy_patches_dict, TEST_REGION)
-    #     entropy_unpadded = center_crop(entropy_stitched, height, width, image = False)
-    #     entropy_unpadded = np.sum(entropy_unpadded, axis=-1)
-
-    #     superpixel_scores = get_superpixel_scores(superpixels_group, entropy_unpadded)
-    
-    #     # sort by prob score in ascending order; most uncertain superpixel first (whichever is close to 0.5)
-    #     superpixel_scores = dict(sorted(superpixel_scores.items(), key=lambda item: item[1]), reverse=True)
-    #     selected_superpixels, max_items = select_superpixels(total_superpixels, superpixel_scores, forest_superpixels)
-    # elif config.SC_MIN:
-    #     pred_patches_dict, min_pred_patches_dict = run_pred_al_min(model, test_loader)
-    #     _, pred_stitched = stitch_patches(min_pred_patches_dict, TEST_REGION)
-    #     pred_unpadded = center_crop(pred_stitched, height, width, image = False)
-    #     pred_unpadded = pred_unpadded[:,:,0]
-
-    #     superpixel_scores = get_superpixel_scores(superpixels_group, pred_unpadded)
-    
-    #     # sort by prob score in ascending order; most uncertain superpixel first (whichever is close to 0.5)
-    #     superpixel_scores = dict(sorted(superpixel_scores.items(), key=lambda item: item[1]))
-    #     selected_superpixels, max_items = select_superpixels(total_superpixels, superpixel_scores, forest_superpixels)
-    # else:
-    #     pred_patches_dict, avg_pred_patches_dict = run_pred_al(model, test_loader)
-    #     rgb_stitched, pred_stitched = stitch_patches(avg_pred_patches_dict, TEST_REGION)
-    #     pred_unpadded = center_crop(pred_stitched, height, width, image = False)
-    #     pred_unpadded = pred_unpadded[:,:,0]
-
-    #     superpixel_scores = get_superpixel_scores(superpixels_group, pred_unpadded)
-    
-    #     # sort by prob score in ascending order; most uncertain superpixel first (whichever is close to 0.5)
-    #     superpixel_scores = dict(sorted(superpixel_scores.items(), key=lambda item: item[1]))
-    #     selected_superpixels, max_items = select_superpixels(total_superpixels, superpixel_scores, forest_superpixels)
-
-
     ## Stitch pred patches back together
     _, pred_stitched_2 = stitch_patches(pred_patches_dict, TEST_REGION)
     pred_unpadded_2 = center_crop(pred_stitched_2, height, width, image = False)
     pred_final = 1 - np.argmax(pred_unpadded_2, axis=-1)
+    np.save(f"./users/{student_id}/output/Region_1_pred.npy", pred_final)
+    pred_final = np.where(pred_final == 0, -1, pred_final)
 
     gt_labels = np.load(f"./data_al/repo/groundTruths/Region_{TEST_REGION}_GT_Labels.npy")
     metrices = elev_eval.run_eval(pred_final, gt_labels)
 
-    file_path = "./Region_1_Metrics.json"
+    file_path = f"./users/{student_id}/output/Region_{TEST_REGION}_Metrics.json"
     with open(file_path, "w") as json_file:
         json.dump(metrices, json_file, indent=4)
 
@@ -1048,7 +1023,7 @@ def recommend_superpixels(TEST_REGION, entropy, probability, transformation_agg,
     result_array[mask_blue] = [0.0, 0.0, 1.0]
 
     print(result_array.shape)
-    plt.imsave('./R1_superpixels_test.png', result_array)
+    plt.imsave(f'./users/{student_id}/output/R{TEST_REGION}_superpixels_test.png', result_array)
 
     # save current prediction as png
     flood_labels = np.where(pred_final > 0.5, 1, 0)
@@ -1059,7 +1034,7 @@ def recommend_superpixels(TEST_REGION, entropy, probability, transformation_agg,
     dry_labels = dry_labels*np.array([ [ [0, 0, 255] ] ])
     pred_labels = (flood_labels + dry_labels).astype('uint8')
     pim = Image.fromarray(pred_labels)
-    pim.convert('RGB').save("./R1_pred_test.png")
+    pim.convert('RGB').save(f'./users/{student_id}/output/R{TEST_REGION}_pred_test.png')
 
     return metrices
 
@@ -1083,8 +1058,25 @@ def ann_to_labels(png_image, TEST_REGION):
     return final_arr
 
 
-def train(TEST_REGION, entropy, probability, transformation_agg, superpixel_agg):
+def train(TEST_REGION, entropy, probability, transformation_agg, superpixel_agg, student_id):
+    student_id = student_id.strip()
+
     print("Retraining the Model with new labels")
+
+    if not os.path.exists(f"./users/{student_id}"):
+        os.mkdir(f"./users/{student_id}")
+
+    if not os.path.exists(f"./users/{student_id}/output"):
+        os.mkdir(f"./users/{student_id}/output")
+
+    if not os.path.exists(f"./users/{student_id}/saved_models_al"):
+        os.mkdir(f"./users/{student_id}/saved_models_al")
+    
+    if not os.path.exists(f"./users/{student_id}/saved_models_al/Region_{TEST_REGION}_TEST"):
+        os.mkdir(f"./users/{student_id}/saved_models_al/Region_{TEST_REGION}_TEST")
+    
+    if not os.path.exists(f"./users/{student_id}/resume_epoch"):
+        os.mkdir(f"./users/{student_id}/resume_epoch")
 
     config.ENTROPY = entropy
     config.PROBABILITY = probability
@@ -1118,22 +1110,23 @@ def train(TEST_REGION, entropy, probability, transformation_agg, superpixel_agg)
 
     # read resume epoch from text file if exists
     try:
-        with open("./resume_epoch.txt", 'r') as file:
+        with open(f"./users/{student_id}/resume_epoch/R{TEST_REGION}.txt", 'r') as file:
             content = file.read()
             resume_epoch = int(content) 
     except FileNotFoundError:
         resume_epoch = 0
-
-    model_path = f"./saved_models_evanet/Region_{TEST_REGION}_TEST/saved_model_AL_{resume_epoch}.ckpt"
-    if os.path.exists(model_path):
-        checkpoint = torch.load(model_path, map_location=torch.device(DEVICE))
-        model.load_state_dict(checkpoint['model'])
+    
+    model_path = f"./users/{student_id}/saved_models_al/Region_{TEST_REGION}_TEST/saved_model_AL_{resume_epoch}.ckpt"
+    if not os.path.exists(model_path):
+        print("Model path doesn't exist; using pretrained model!!!")
+        model_path = f"./saved_models_al/initial_model/Region_{TEST_REGION}_TEST/saved_model_al_{resume_epoch}.ckpt"
+    else:
         print(f"Resuming from epoch {resume_epoch}")
-    # else:
-    #     print("Model not found!!!")
-    #     exit(0)
 
-    updated_labels = ann_to_labels("./R1_labels.png", TEST_REGION)
+    checkpoint = torch.load(model_path, map_location=torch.device(DEVICE))
+    model.load_state_dict(checkpoint['model'])
+
+    updated_labels = ann_to_labels(f'./users/{student_id}/output/R{TEST_REGION}_labels.png', TEST_REGION)
 
     # need to remake labels after getting updated labels
     remake_data(updated_labels, TEST_REGION)
@@ -1350,13 +1343,13 @@ def train(TEST_REGION, entropy, probability, transformation_agg, superpixel_agg)
                 torch.save({'epoch': epoch + 1,  # when resuming, we will start at the next epoch
                             'model': model.state_dict(),
                             'optimizer': optimizer.state_dict()}, 
-                            f"./saved_models_evanet/Region_{TEST_REGION}_TEST/saved_model_AL_{epoch+1}.ckpt")
+                            f"./users/{student_id}/saved_models_al/Region_{TEST_REGION}_TEST/saved_model_AL_{epoch+1}.ckpt")
     
-    with open("./resume_epoch.txt", 'w') as file:
+    with open(f"./users/{student_id}/resume_epoch/R{TEST_REGION}.txt", 'w') as file:
         file.write(str(resume_epoch))
     
     # call AL pipeline once the model is retrained
-    recommend_superpixels(TEST_REGION, config.ENTROPY, config.PROBABILITY, transformation_agg, superpixel_agg)
+    recommend_superpixels(TEST_REGION, config.ENTROPY, config.PROBABILITY, transformation_agg, superpixel_agg, student_id)
     
     return
 

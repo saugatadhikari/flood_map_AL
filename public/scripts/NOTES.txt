@@ -93,7 +93,11 @@
 5. When Entropy is selected, Minimum option should change to Maximum: TODO
 
 6. Forest Model: Switch to slides for details
-
 7. Read paper and be ready for discussion next week: DONE
 
 01/24
+1. Figure out how to use TOD as well as Uncertainty-Measure
+2. Study TOD code; Acquisition and Loss function using EMA
+3. Integrate forest score in acquisition function instead of banning them
+4. prepare detailed instructions for Forest Model
+5. Change retrain button CSS
