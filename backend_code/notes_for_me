@@ -1,0 +1,5 @@
+TODO:
+
+1. Check ema parameters update!!!
+2. Check LR scheduler!!!
+3. Check whether or not we need to do softmax in EvaNet!!!

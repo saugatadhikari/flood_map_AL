@@ -249,6 +249,6 @@ def main(TEST_REGION):
     move_files(TEST_REGION)
 
 if __name__ == "__main__":
-    TEST_REGION = 1
+    TEST_REGION = 0
 
     main(TEST_REGION)

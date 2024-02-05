@@ -1573,6 +1573,7 @@ var texContext : CanvasRenderingContext2D
                                                                             &superpixel_agg=${superpixel_agg}
                                                                             &taskId=${student_id}
                                                                             &testRegion=${testRegion}
+                                                                            &initial=${1}
                                                                             `).then(response => response.arrayBuffer());
 
                                 console.log("superpixelBuffer: ", superpixelBuffer)

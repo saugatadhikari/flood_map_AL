@@ -64,7 +64,7 @@ def stl():
     TEST_REGION = int(request.args.get('testRegion', 1))
     if request.method == 'POST':
         f = request.files['file']
-        f.save(f.filename)
+        # f.save(f.filename)
 #         subprocess.check_output(['./hmm', f.filename, 'a.stl', '-z', '500', '-t', '10000000'])
         print("testRegion: ", TEST_REGION)
         payload = make_response(send_file(f'./stl/Region_{TEST_REGION}.stl'))
@@ -77,23 +77,53 @@ def stl():
 @app.route('/superpixel', methods=['GET'])
 def superpixel():
     recommend = request.args.get('recommend')
+    initial = int(request.args.get('initial', 0))
 
     entropy = int(request.args.get('entropy', 0))
     probability = int(request.args.get('probability', 0))
 
-    transformation_agg = request.args.get('transformation_agg').strip()
-    superpixel_agg = request.args.get('superpixel_agg').strip()
+    transformation_agg = request.args.get('transformation_agg', '').strip()
+    superpixel_agg = request.args.get('superpixel_agg', '').strip()
 
-    student_id = request.args.get('taskId').strip()
+    student_id = request.args.get('taskId', '').strip()
     TEST_REGION = int(request.args.get('testRegion', 1))
 
     print(entropy, probability)
     print(superpixel_agg, transformation_agg)
     print(student_id)
 
+    # read AL cycle from txt file
+    try:
+        with open(f"./users/{student_id}/al_cycles/R{TEST_REGION}.txt", 'r') as file:
+            content = file.read()
+            al_cycle = int(content) 
+    except FileNotFoundError:
+        al_cycle = 0
+
+    # to handle the situation where a user does AL for a while, terminated and starts again (all the process has to be completed in 1 go, there can be no break in between)
+    if initial:
+        try:
+            with open(f"./users/{student_id}/resume_epoch/R{TEST_REGION}.txt", 'w') as file:
+                file.write(str(0))
+        except FileNotFoundError:
+            pass
+
+        try:
+            with open(f"./users/{student_id}/al_cycles/R{TEST_REGION}.txt", 'w') as file:
+                file.write(str(0))
+                al_cycle = 0
+        except FileNotFoundError:
+            pass
+
+        try:
+            with open(f"./users/{student_id}/al_iters/R{TEST_REGION}.txt", 'w') as file:
+                file.write(str(0))
+        except FileNotFoundError:
+            pass
+
     metrices = {}
     if int(recommend):
-        metrices = recommend_superpixels(TEST_REGION, entropy, probability, transformation_agg, superpixel_agg, student_id)
+        metrices = recommend_superpixels(TEST_REGION, entropy, probability, transformation_agg, superpixel_agg, student_id, al_cycle)
     
     payload = make_response(send_file(f'./users/{student_id}/output/R{TEST_REGION}_superpixels_test.png'))
     payload.headers.add('Access-Control-Allow-Origin', '*')
@@ -184,7 +214,7 @@ def retrain():
 
     if file:
         print('image is here')
-        # file = request.files['image']
+        file = request.files['image']
 
         # Process the file as needed, for example, save it to the server
         file.save(f'./users/{student_id}/output/R{TEST_REGION}_labels.png')

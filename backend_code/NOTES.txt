@@ -85,26 +85,38 @@
 
 
 01/17
-1. Metrics: remove quotation, Acc on top (only one), space between dry and flood metrics, space after accuracy, Align: TODO
-2. change notations: TODO
+1. Change self-consistency to Uncertainty Measure: DONE
+2. Transform-level Agg, Pixel-level Agg: Frontend: DONE
+3. Forest Model: Switch to slides for details
+4. Read paper and be ready for discussion next week: DONE
 
-3. Change self-consistency to Uncertainty Measure: DONE
-4. Transform-level Agg, Pixel-level Agg: Frontend: DONE
-5. When Entropy is selected, Minimum option should change to Maximum: TODO
-
-6. Forest Model: Switch to slides for details
-7. Read paper and be ready for discussion next week: DONE
 
 01/24
-1. Figure out how to use TOD as well as Uncertainty-Measure
-2. Study TOD code; Acquisition and Loss function using EMA
-3. Integrate forest score in acquisition function instead of banning them
-4. prepare detailed instructions for Forest Model
-5. Change retrain button CSS
-6. For unsupervised loss, only take unlabeled regions
+Forest model
+1. prepare detailed instructions for Forest Model: DONE
+2. Change retrain button and Download button's UI: DONE
+3. Integrate forest score in acquisition function instead of banning them: TODO
+
+Active Learning
+1. Figure out how to use TOD as well as Uncertainty-Measure: TODO
+2. Study TOD code; Acquisition and Loss function using EMA: TODO
+3. For unsupervised loss, only take unlabeled regions: TODO
+4. Metrics: remove quotation, Acc on top (only one), space between dry and flood metrics, space after accuracy, Align: TODO
+5. When Entropy is selected, Minimum option should change to Maximum: TODO
+6. change notations on slides: TODO
 
 About TOD Code:
-1. main_TOD.py: train_epoch() function, why do we need res_loss? Its always zero, right? scores and cons_scores use to compute mse_loss looks exactly same to me!
-2. Check ema parameters update!!!
-3. Check LR scheduler!!!
-4. Check whether or not we need to do softmax in EvaNet!!!
+1. main_TOD.py: train_epoch() function, why do we need res_loss? Its always zero, right? 
+   scores and cons_scores use to compute mse_loss looks exactly same to me!
+
+01/31
+1. Test Region 1: remove obvious flood 
+2. try log prob for + and - for voting down superpixel: AND relation
+
+3. make instructions more formal; even add enter password instructions --> add toy example: DONE
+4. also Download annotation (blue and green): DONE
+5. create a sign up form in frontend for students --> UAB's Office 365 Form: DONE
+ --> 2 images per students
+ --> make it work for toy example
+ --> attach toy example to add restrictions
+ --> screenshots

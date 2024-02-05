@@ -171,12 +171,15 @@ def run_pred_al_cod(models, data_loader):
         cod_loss = (pred_backbone - pred_cod).pow(2)
         print("cod_loss: ", cod_loss.shape)
         final_prob_np = cod_loss.detach().cpu().numpy()
+
+        pred_np = pred_backbone.detach().cpu().numpy()
         
         ## Save Image and RGB patch
         for idx in range(rgb_data.shape[0]):
             final_pred_patches_dict[filename[idx]] = final_prob_np[idx, :, :, :]
+            pred_patches_dict[filename[idx]] = pred_np[idx, :, :, :]
 
-    return final_pred_patches_dict
+    return pred_patches_dict, final_pred_patches_dict
 
 def run_pred_al_min(model, data_loader):
     
@@ -375,7 +378,7 @@ def run_pred_al_entropy(model, data_loader, TRANSFORMATION_SCORE):
 
         # all_logits = [pred, pred_flipx_inv, pred_flipy_inv, pred_rot90_inv, pred_rot180_inv, pred_rot270_inv]
         all_logits = [pred, pred_flipx_inv, pred_flipy_inv, pred_rot90_inv, pred_rot180_inv, pred_rot270_inv]
-
+  
         entropy = compute_entropy(all_logits, TRANSFORMATION_SCORE)
 
         pred_np = pred.detach().cpu().numpy()
@@ -710,7 +713,8 @@ def update_ema_variables(model, ema_model, alpha, global_step):
     # Use the true average until the exponential average is more correct
     alpha = min(1 - 1 / (global_step + 1), alpha)
     for ema_param, param in zip(ema_model.parameters(), model.parameters()):
-        ema_param.data.mul_(alpha).add_(1 - alpha, param.data)
+        # ema_param.data.mul_(alpha).add_(1 - alpha, param.data)
+        ema_param.data.mul_(alpha).add_(param.data, alpha=1 - alpha)
 
 def ema_loss(backbone_scores, ema_scores):
     consistency_loss = F.mse_loss(backbone_scores, ema_scores)
@@ -731,10 +735,10 @@ def loss_self_consistency(logits: list, labels):
 #         total_sum += norm
 #         counter += 1
 
-     ## Generate Pred Masks
-#     ones = torch.ones_like(labels)
-
-#     known_mask = torch.where(labels != 0, ones, 0)
+    # Generate Pred Masks
+    ones = torch.ones_like(labels)
+    unknown_mask = torch.where(labels == 0, ones, 0) # only get the unlabeled pixels
+    unknown_pixels_count = int(torch.sum(unknown_mask))
     
     avg_logits = (logits[0] + logits[1] + logits[2] + logits[3] + logits[4] + logits[5])/6
     
@@ -744,13 +748,14 @@ def loss_self_consistency(logits: list, labels):
         # l1, l2 = original_logit, transformed_logit
         l1, l2 = avg_logits, transformed_logit
         diff = torch.subtract(l1, l2)
-#         diff = known_mask * diff
+        diff = unknown_mask * diff # TODO: check this!!!!!!!!!, only computing loss for unknown pixels
         norm = torch.norm(diff)
         total_sum += norm
         counter += 1
 
     _, W, H, C = logits[0].shape
-    loss = (total_sum)/(W * H * C * counter)
+    # loss = (total_sum)/(W * H * C * counter)
+    loss = (total_sum)/(unknown_pixels_count * C * counter) # TODO: check this!!!!!!!!!, only computing loss for unknown pixels
     return loss
 
 def loss_self_consistency_acquisition(logits: list):
@@ -863,7 +868,7 @@ def convert_to_rgb(input_array):
     return rgb_image
 
 
-def recommend_superpixels(TEST_REGION, entropy, probability, transformation_agg, superpixel_agg, student_id, al_cycle):
+def recommend_superpixels(TEST_REGION, entropy, probability, transformation_agg, superpixel_agg, student_id, al_cycle, updated_labels=None):
     student_id = student_id.strip()
 
     if not os.path.exists(f"./users/{student_id}"):
@@ -914,12 +919,15 @@ def recommend_superpixels(TEST_REGION, entropy, probability, transformation_agg,
     superpixels = np.load(f"./data_al/superpixels/Region_{TEST_REGION}/Region_{TEST_REGION}_superpixels.npy") # TODO: make is a global variable or store in cache
     forest = np.load(f"./data_al/forest/Region_{TEST_REGION}_forest.npy") # TODO: make is a global variable or store in cache
 
+    print(forest.shape)
+
     superpixels_group = defaultdict(list)
     forest_superpixels = {}
 
     # Iterate through the NumPy array to group pixels
     height = superpixels.shape[0]
     width = superpixels.shape[1]
+    print(height, width)
     for i in range(height):
         for j in range(width):
             pixel_value = superpixels[i][j]
@@ -973,13 +981,14 @@ def recommend_superpixels(TEST_REGION, entropy, probability, transformation_agg,
     total_superpixels = len(superpixels_group.items())
 
     ######### Pixel Selection using Active Learning #######################
-    model = EvaNet(config.BATCH_SIZE, config.IN_CHANNEL, config.N_CLASSES, ultrasmall = True).to(DEVICE)
+    # model = EvaNet(config.BATCH_SIZE, config.IN_CHANNEL, config.N_CLASSES, ultrasmall = True).to(DEVICE)
     cod_model = EvaNet(config.BATCH_SIZE, config.IN_CHANNEL, config.N_CLASSES, ultrasmall = True).to(DEVICE)
     backbone_net = EvaNet(config.BATCH_SIZE, config.IN_CHANNEL, config.N_CLASSES, ultrasmall = True).to(DEVICE)
 
-    models = {'original': model, 'backbone': backbone_net, 'cod': cod_model}
+    # models = {'original': model, 'backbone': backbone_net, 'cod': cod_model}
+    models = {'backbone': backbone_net, 'cod': cod_model}
 
-    optimizer = SGD(model.parameters(), lr = 1e-7)
+    # optimizer = SGD(model.parameters(), lr = 1e-7)
     criterion = ElevationLoss()
     elev_eval = Evaluator()
 
@@ -987,7 +996,7 @@ def recommend_superpixels(TEST_REGION, entropy, probability, transformation_agg,
     model_path = f"./users/{student_id}/saved_models_al/Region_{TEST_REGION}_TEST/saved_model_AL_{resume_epoch}.ckpt"
     if not os.path.exists(model_path):
         print("Model path doesn't exist; using pretrained model!!!")
-        model_path = f"./saved_models_evanet/initial_model/Region_{TEST_REGION}_TEST/saved_model_AL_0.ckpt"
+        model_path = f"./saved_models_evanet/initial_model/saved_model_AL_0.ckpt"
     else:
         print(f"Resuming from epoch {resume_epoch}")
 
@@ -1014,44 +1023,63 @@ def recommend_superpixels(TEST_REGION, entropy, probability, transformation_agg,
     test_dataset = get_dataset(cropped_data_path)
     test_loader = DataLoader(test_dataset, batch_size = config.BATCH_SIZE)
 
+    # TODO: initialize pred_unpadded and entropy unpadded to zeros
+
     if config.ENTROPY:
-        pred_patches_dict, entropy_patches_dict = run_pred_al_entropy(model, test_loader, config.TRANSFORMATION_SCORE)
+        pred_patches_dict, entropy_patches_dict = run_pred_al_entropy(models['backbone'], test_loader, config.TRANSFORMATION_SCORE)
         _, entropy_stitched = stitch_patches(entropy_patches_dict, TEST_REGION)
         entropy_unpadded = center_crop(entropy_stitched, height, width, image = False)
-        entropy_unpadded = np.sum(entropy_unpadded, axis=-1)
+        # entropy_unpadded = np.sum(entropy_unpadded, axis=-1)
+        entropy_unpadded = entropy_unpadded[:,:,0]
 
-        superpixel_scores = get_superpixel_scores(superpixels_group, entropy_unpadded, config.SUPERPIXEL_SCORE)
+        # superpixel_scores = get_superpixel_scores(superpixels_group, entropy_unpadded, config.SUPERPIXEL_SCORE)
     
-        # sort by prob score in ascending order; most uncertain superpixel first (whichever is close to 0.5)
-        superpixel_scores = dict(sorted(superpixel_scores.items(), key=lambda item: item[1]), reverse=True)
-        selected_superpixels, max_items = select_superpixels(total_superpixels, superpixel_scores, forest_superpixels)
+        # # sort by prob score in descending order; highest entropy first
+        # superpixel_scores = dict(sorted(superpixel_scores.items(), key=lambda item: item[1]), reverse=True)
+        # selected_superpixels, max_items = select_superpixels(total_superpixels, superpixel_scores, forest_superpixels)
     elif config.PROBABILITY:
-        pred_patches_dict, final_pred_patches_dict = run_pred_al_probability(model, test_loader, config.TRANSFORMATION_SCORE)
+        pred_patches_dict, final_pred_patches_dict = run_pred_al_probability(models['backbone'], test_loader, config.TRANSFORMATION_SCORE)
         rgb_stitched, pred_stitched = stitch_patches(final_pred_patches_dict, TEST_REGION)
         pred_unpadded = center_crop(pred_stitched, height, width, image = False)
-        pred_unpadded = pred_unpadded[:,:,0]
-
-        superpixel_scores = get_superpixel_scores(superpixels_group, pred_unpadded, config.SUPERPIXEL_SCORE)
-    
-        # sort by prob score in ascending order; most uncertain superpixel first (whichever is close to 0.5)
-        superpixel_scores = dict(sorted(superpixel_scores.items(), key=lambda item: item[1]))
-        selected_superpixels, max_items = select_superpixels(total_superpixels, superpixel_scores, forest_superpixels)
-    elif config.COD:
-        pred_patches_dict, final_pred_patches_dict = run_pred_al_cod(model, test_loader)
-        rgb_stitched, pred_stitched = stitch_patches(final_pred_patches_dict, TEST_REGION)
-        pred_unpadded = center_crop(pred_stitched, height, width, image = False)
-        pred_unpadded = pred_unpadded[:,:,0]
-
-        # TODO: see how this score can be used together with uncertainty measures above!!!
+        pred_unpadded = pred_unpadded[:,:,0] # TODO: make sure this score is always between 0 - 0.5
 
         # superpixel_scores = get_superpixel_scores(superpixels_group, pred_unpadded, config.SUPERPIXEL_SCORE)
     
         # # sort by prob score in ascending order; most uncertain superpixel first (whichever is close to 0.5)
         # superpixel_scores = dict(sorted(superpixel_scores.items(), key=lambda item: item[1]))
         # selected_superpixels, max_items = select_superpixels(total_superpixels, superpixel_scores, forest_superpixels)
-        
+
+
+    if config.COD:
+        pred_patches_dict_cod, final_pred_patches_dict_cod = run_pred_al_cod(models, test_loader)
+        _, pred_stitched_cod = stitch_patches(final_pred_patches_dict_cod, TEST_REGION)
+        pred_unpadded_cod = center_crop(pred_stitched_cod, height, width, image = False)
+        pred_unpadded_cod = pred_unpadded_cod[:,:,0]
+
+        # TODO: see how this score can be used together with uncertainty measures above!!!
+        if config.PROBABILITY:
+            # compute the weighted sum to 2 uncertainty scores (probability offset and COD)
+            pred_unpadded = config.LAMBDA_1_UNCERTAINTY * pred_unpadded + config.LAMBDA_2_UNCERTAINTY * pred_unpadded_cod
+        elif config.ENTROPY:
+            # compute the weighted sum to 2 uncertainty scores (entropy and COD); higher entropy means recommend so we add (1 - pred_unpadded_cod)
+            entropy_unpadded = config.LAMBDA_1_UNCERTAINTY * entropy_unpadded + config.LAMBDA_2_UNCERTAINTY * (1 - pred_unpadded_cod)
+
     
-           
+    if config.PROBABILITY:
+        # get aggregate score of each superpixel
+        superpixel_scores = get_superpixel_scores(superpixels_group, pred_unpadded, config.SUPERPIXEL_SCORE)
+
+        # sort by prob score in ascending order; most uncertain superpixel first (whichever is close to 0.5)
+        superpixel_scores = dict(sorted(superpixel_scores.items(), key=lambda item: item[1]))
+    elif config.ENTROPY:
+        # get aggregate score of each superpixel
+        superpixel_scores = get_superpixel_scores(superpixels_group, entropy_unpadded, config.SUPERPIXEL_SCORE)
+
+        # sort by prob score in descending order; highest entropy first
+        superpixel_scores = dict(sorted(superpixel_scores.items(), key=lambda item: item[1]), reverse=True)
+
+    # select top-N superpixels
+    selected_superpixels, max_items = select_superpixels(total_superpixels, superpixel_scores, forest_superpixels)
 
 
     ## Stitch pred patches back together
@@ -1095,6 +1123,13 @@ def recommend_superpixels(TEST_REGION, entropy, probability, transformation_agg,
 
     print(result_array.shape)
     plt.imsave(f'./users/{student_id}/output/R{TEST_REGION}_superpixels_test.png', result_array)
+
+    # user's annotation should stay the same in the predicted result even though model predicts otherwise
+    if updated_labels is not None:
+        flood_pixels = np.where(updated_labels == 1)
+        dry_pixels = np.where(updated_labels == -1)
+        pred_final[flood_pixels] = 1
+        pred_final[dry_pixels] = -1
 
     # save current prediction as png
     flood_labels = np.where(pred_final > 0.5, 1, 0)
@@ -1149,6 +1184,13 @@ def train(TEST_REGION, entropy, probability, transformation_agg, superpixel_agg,
     if not os.path.exists(f"./users/{student_id}/resume_epoch"):
         os.mkdir(f"./users/{student_id}/resume_epoch")
 
+    if not os.path.exists(f"./users/{student_id}/al_iters"):
+        os.mkdir(f"./users/{student_id}/al_iters")
+
+    if not os.path.exists(f"./users/{student_id}/al_cycles"):
+        os.mkdir(f"./users/{student_id}/al_cycles")
+
+
     config.ENTROPY = entropy
     config.PROBABILITY = probability
 
@@ -1174,16 +1216,20 @@ def train(TEST_REGION, entropy, probability, transformation_agg, superpixel_agg,
     # return # TODO: remove after test
 
 
-    model = EvaNet(config.BATCH_SIZE, config.IN_CHANNEL, config.N_CLASSES, ultrasmall = True).to(DEVICE)
+    # model = EvaNet(config.BATCH_SIZE, config.IN_CHANNEL, config.N_CLASSES, ultrasmall = True).to(DEVICE)
     cod_model = EvaNet(config.BATCH_SIZE, config.IN_CHANNEL, config.N_CLASSES, ultrasmall = True).to(DEVICE)
     ema_model = EvaNet(config.BATCH_SIZE, config.IN_CHANNEL, config.N_CLASSES, ultrasmall = True).to(DEVICE)
     backbone_net = EvaNet(config.BATCH_SIZE, config.IN_CHANNEL, config.N_CLASSES, ultrasmall = True).to(DEVICE)
 
-    optimizer = SGD(models['original'].parameters(), lr = 1e-7)
+    models = {'backbone': backbone_net, 'ema': ema_model, 'cod': cod_model}
+
+    # optimizer = SGD(models['original'].parameters(), lr = 1e-7)
     optimizer_backbone = SGD(models['backbone'].parameters(), lr = 1e-7)
 
-    models = {'original': model, 'backbone': backbone_net, 'ema': ema_model, 'cod': cod_model}
-    optimizers = {'original': optimizer, 'backbone': optimizer_backbone}
+    # models = {'original': model, 'backbone': backbone_net, 'ema': ema_model, 'cod': cod_model}
+    # optimizers = {'original': optimizer, 'backbone': optimizer_backbone}
+
+    optimizers = {'backbone': optimizer_backbone}
     
     criterion = ElevationLoss()
     elev_eval = Evaluator()
@@ -1206,12 +1252,12 @@ def train(TEST_REGION, entropy, probability, transformation_agg, superpixel_agg,
 
     if not os.path.exists(model_path):
         print("Model path doesn't exist; using pretrained model!!!")
-        model_path = f"./saved_models_al/initial_model/Region_{TEST_REGION}_TEST/saved_model_al_{resume_epoch}.ckpt"
+        model_path = f"./saved_models_evanet/initial_model/saved_model_AL_{resume_epoch}.ckpt"
     else:
         print(f"Resuming from epoch {resume_epoch}")
 
     checkpoint = torch.load(model_path, map_location=torch.device(DEVICE))
-    models['original'].load_state_dict(checkpoint['model'])
+    models['backbone'].load_state_dict(checkpoint['model'])
 
     updated_labels = ann_to_labels(f'./users/{student_id}/output/R{TEST_REGION}_labels.png', TEST_REGION)
 
@@ -1240,15 +1286,14 @@ def train(TEST_REGION, entropy, probability, transformation_agg, superpixel_agg,
         print(f"EPOCH: {epoch+1}/{total_epochs} \r")
 
         ## Models gets set to training mode
-        models['original'].train()
+        # models['original'].train()
         models['backbone'].train()
         models['ema'].train()
 
         al_loss = 0 
 
         for data_dict in tqdm(al_loader):
-
-            al_iters += 1
+            al_iters += 1 # al_iters is for the entire steps the model is trained for
 
             ## RGB data
             rgb_data = data_dict['rgb_data'].float().to(DEVICE)
@@ -1269,7 +1314,7 @@ def train(TEST_REGION, entropy, probability, transformation_agg, superpixel_agg,
             labels.requires_grad = False  
 
             ## Get model prediction
-            pred = models['original'](rgb_data, norm_elev_data)
+            # pred = models['original'](rgb_data, norm_elev_data)
             pred_backbone = models['backbone'](rgb_data, norm_elev_data)
             pred_ema = models['ema'](rgb_data, norm_elev_data)
             
@@ -1285,11 +1330,11 @@ def train(TEST_REGION, entropy, probability, transformation_agg, superpixel_agg,
             norm_elev_data_rot180 = torchvision.transforms.functional.rotate(norm_elev_data, angle=180)
             norm_elev_data_rot270 = torchvision.transforms.functional.rotate(norm_elev_data, angle=270)
 
-            pred_flipx = model(rgb_data_flipx, norm_elev_data_flipx) # get pred for horizontal flip
-            pred_flipy = model(rgb_data_flipy, norm_elev_data_flipy) # get pred for horizontal flip
-            pred_rot90 = model(rgb_data_rot90, norm_elev_data_rot90) # get pred for horizontal flip
-            pred_rot180 = model(rgb_data_rot180, norm_elev_data_rot180) # get pred for horizontal flip
-            pred_rot270 = model(rgb_data_rot270, norm_elev_data_rot270) # get pred for horizontal flip
+            pred_flipx = models['backbone'](rgb_data_flipx, norm_elev_data_flipx) # get pred for horizontal flip
+            pred_flipy = models['backbone'](rgb_data_flipy, norm_elev_data_flipy) # get pred for horizontal flip
+            pred_rot90 = models['backbone'](rgb_data_rot90, norm_elev_data_rot90) # get pred for horizontal flip
+            pred_rot180 = models['backbone'](rgb_data_rot180, norm_elev_data_rot180) # get pred for horizontal flip
+            pred_rot270 = models['backbone'](rgb_data_rot270, norm_elev_data_rot270) # get pred for horizontal flip
 
             pred_flipx_inv = torch.flip(pred_flipx, dims=(-1,)) # flip back to original orientation
             pred_flipy_inv = torchvision.transforms.functional.vflip(pred_flipy) # flip back to original orientation
@@ -1298,7 +1343,7 @@ def train(TEST_REGION, entropy, probability, transformation_agg, superpixel_agg,
             pred_rot270_inv = torchvision.transforms.functional.rotate(pred_rot270, angle=90)
 
             ## Backprop Loss
-            loss1 = criterion.forward(pred, elev_data, labels)
+            loss1 = criterion.forward(pred_backbone, elev_data, labels)
             loss2 = criterion.forward(pred_flipx_inv, elev_data, labels)
             loss3 = criterion.forward(pred_flipy_inv, elev_data, labels)
             loss4 = criterion.forward(pred_rot90_inv, elev_data, labels)
@@ -1306,22 +1351,27 @@ def train(TEST_REGION, entropy, probability, transformation_agg, superpixel_agg,
             loss6 = criterion.forward(pred_rot270_inv, elev_data, labels)
 
             # flip and rotate; add all 6
-            all_logits = [pred, pred_flipx_inv, pred_flipy_inv, pred_rot90_inv, pred_rot180_inv, pred_rot270_inv]
+            all_logits = [pred_backbone, pred_flipx_inv, pred_flipy_inv, pred_rot90_inv, pred_rot180_inv, pred_rot270_inv]
+
+            # create a mask of unlabeled pixels
+            ones = torch.ones_like(labels)
+            unknown_mask = torch.where(labels == 0, ones, 0)
+            unknown_pixels_count = int(torch.sum(unknown_mask))
 
             # Calculate 3 loss and aggregate them
             supervised_loss = (loss1 + loss2 + loss3 + loss4 + loss5 + loss6)/6
             self_consistency_loss = loss_self_consistency(all_logits, labels)
-            ema_loss = F.mse_loss(pred_backbone, pred_ema) # TODO: check for labeled and unlabeled pixel's loss
+            ema_loss = F.mse_loss(pred_backbone * unknown_mask, pred_ema * unknown_mask) # TODO: unknown mask prevents known pixels from being included in the loss computation
 
             total_loss = supervised_loss + config.LAMBDA_1 * self_consistency_loss + config.LAMBDA_2 * ema_loss # TODO: these hyperparams should be tuned
 
             # backpropagate the total loss
-            optimizers['original'].zero_grad()
+            # optimizers['original'].zero_grad()
             optimizers['backbone'].zero_grad()
 
             total_loss.backward()
 
-            optimizers['original'].step()
+            # optimizers['original'].step()
             optimizers['backbone'].step()
 
             ## Record loss for batch
@@ -1337,8 +1387,8 @@ def train(TEST_REGION, entropy, probability, transformation_agg, superpixel_agg,
     # Skipping model validation, just save model after all the epochs are trained
     print("Saving Model")
     torch.save({'epoch': last_epoch,  # when resuming, we will start at the next epoch
-                'model': models['original'].state_dict(),
-                'optimizer': optimizers['original'].state_dict()}, 
+                'model': models['backbone'].state_dict(),
+                'optimizer': optimizers['backbone'].state_dict()}, 
                 f"./users/{student_id}/saved_models_al/Region_{TEST_REGION}_TEST/saved_model_AL_{last_epoch}.ckpt")
     
     
@@ -1347,14 +1397,20 @@ def train(TEST_REGION, entropy, probability, transformation_agg, superpixel_agg,
 
     with open(f"./users/{student_id}/al_iters/R{TEST_REGION}.txt", 'w') as file:
         file.write(str(al_iters))
+
+    with open(f"./users/{student_id}/al_cycles/R{TEST_REGION}.txt", 'w') as file:
+        file.write(str(al_cycle + 1))
     
+
     # call AL pipeline once the model is retrained
-    recommend_superpixels(TEST_REGION, config.ENTROPY, config.PROBABILITY, transformation_agg, superpixel_agg, student_id, al_cycle)
+    recommend_superpixels(TEST_REGION, config.ENTROPY, config.PROBABILITY, transformation_agg, superpixel_agg, student_id, al_cycle, updated_labels=updated_labels)
 
     torch.save({'epoch': last_epoch,  # when resuming, we will start at the next epoch
                 'model': models['backbone'].state_dict(),
                 'optimizer': optimizers['backbone'].state_dict()}, 
-                f"./users/{student_id}/saved_models_al/Region_{TEST_REGION}_TEST/saved_model_AL_cycle_{al_cycle}.ckpt")
+                f"./users/{student_id}/saved_models_al/Region_{TEST_REGION}_TEST/saved_model_AL_cycle_{al_cycle + 1}.ckpt")
+    
+    
     
     return
 
