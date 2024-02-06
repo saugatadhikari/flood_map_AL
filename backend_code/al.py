@@ -169,7 +169,6 @@ def run_pred_al_cod(models, data_loader):
         pred_cod = models['cod'](rgb_data, norm_elev_data)
 
         cod_loss = (pred_backbone - pred_cod).pow(2)
-        # print("cod_loss: ", cod_loss.shape)
         final_prob_np = cod_loss.detach().cpu().numpy()
 
         pred_np = pred_backbone.detach().cpu().numpy()
@@ -396,7 +395,8 @@ def compute_entropy(outputs, TRANSFORMATION_SCORE):
     counter = 0
     entropy_list = []
     for i, output in enumerate(outputs):
-        prob_out = torch.nn.functional.softmax(output, dim = 1)
+        # prob_out = torch.nn.functional.softmax(output, dim = 1)
+        prob_out = torch.clone(output)
 
         log_out =-1* torch.log(prob_out)
         log_out[log_out != log_out] = 0
@@ -662,7 +662,7 @@ def center_crop(stictched_data, original_height, original_width, image = False):
     
     return cropped
 
-def get_superpixel_scores(superpixels_group, logits, SUPERPIXEL_SCORE):
+def get_superpixel_scores(superpixels_group, logits, forest_prob, SUPERPIXEL_SCORE):
     superpixel_scores = {}
     for sid, pixels in superpixels_group.items():
         total_score = 0
@@ -671,6 +671,16 @@ def get_superpixel_scores(superpixels_group, logits, SUPERPIXEL_SCORE):
         max_score = -1e300
         for (row, col) in pixels:
             prob_score = logits[row][col]
+            forest_score = forest_prob[row][col]
+
+            # Vote down the superpixel based on forest model probability score
+            if config.PROBABILITY:
+                prob_score += forest_score
+            elif config.ENTROPY:
+                prob_score -= forest_score
+            elif config.COD:
+                prob_score += forest_score
+
             total_score += prob_score
             if prob_score < min_score:
                 min_score = prob_score
@@ -915,9 +925,10 @@ def recommend_superpixels(TEST_REGION, entropy, probability, transformation_agg,
     DATASET_PATH = "./data_al/repo/Features_7_Channels"
 
     superpixels = np.load(f"./data_al/superpixels/Region_{TEST_REGION}/Region_{TEST_REGION}_superpixels.npy") # TODO: make is a global variable or store in cache
-    forest = np.load(f"./data_al/forest/Region_{TEST_REGION}_forest.npy") # TODO: make is a global variable or store in cache
+    forest_labels = np.load(f"./data_al/forest/R{TEST_REGION}_forest_labels.npy") # TODO: make is a global variable or store in cache
+    forest_prob = np.load(f"./data_al/forest/R{TEST_REGION}_forest.npy") # TODO: make is a global variable or store in cache
 
-    print(forest.shape)
+    print(forest_labels.shape)
 
     superpixels_group = defaultdict(list)
     forest_superpixels = {}
@@ -939,7 +950,7 @@ def recommend_superpixels(TEST_REGION, entropy, probability, transformation_agg,
 
         accepted_pixels = []
         for (row, col) in pixels:
-            is_forest = forest[row][col]
+            is_forest = forest_labels[row][col]
             if is_forest:
                 forest_count += 1
             else:
@@ -956,7 +967,7 @@ def recommend_superpixels(TEST_REGION, entropy, probability, transformation_agg,
             accepted_sub_pixels[accepted_pixels_np[:, 0], accepted_pixels_np[:, 1]] = 1
 
 
-    print("SUM: ", np.sum(accepted_sub_pixels))
+    # print("SUM: ", np.sum(accepted_sub_pixels))
 
     # read resume epoch from text file if exists
     try:
@@ -1029,8 +1040,8 @@ def recommend_superpixels(TEST_REGION, entropy, probability, transformation_agg,
         pred_patches_dict, entropy_patches_dict = run_pred_al_entropy(models['backbone'], test_loader, config.TRANSFORMATION_SCORE)
         _, entropy_stitched = stitch_patches(entropy_patches_dict, TEST_REGION)
         entropy_unpadded = center_crop(entropy_stitched, height, width, image = False)
-        # entropy_unpadded = np.sum(entropy_unpadded, axis=-1)
-        entropy_unpadded = entropy_unpadded[:,:,0]
+        entropy_unpadded = np.sum(entropy_unpadded, axis=-1)/2
+        # entropy_unpadded = entropy_unpadded[:,:,0]
 
         # superpixel_scores = get_superpixel_scores(superpixels_group, entropy_unpadded, config.SUPERPIXEL_SCORE)
     
@@ -1041,7 +1052,7 @@ def recommend_superpixels(TEST_REGION, entropy, probability, transformation_agg,
         pred_patches_dict, final_pred_patches_dict = run_pred_al_probability(models['backbone'], test_loader, config.TRANSFORMATION_SCORE)
         rgb_stitched, pred_stitched = stitch_patches(final_pred_patches_dict, TEST_REGION)
         pred_unpadded = center_crop(pred_stitched, height, width, image = False)
-        pred_unpadded = pred_unpadded[:,:,0] # TODO: make sure this score is always between 0 - 0.5
+        pred_unpadded = pred_unpadded[:,:,0]
 
         print(np.min(pred_unpadded), np.max(pred_unpadded))
         print("pred_shape: ", pred_unpadded.shape)
@@ -1058,7 +1069,8 @@ def recommend_superpixels(TEST_REGION, entropy, probability, transformation_agg,
         pred_patches_dict_cod, final_pred_patches_dict_cod = run_pred_al_cod(models, test_loader)
         _, pred_stitched_cod = stitch_patches(final_pred_patches_dict_cod, TEST_REGION)
         pred_unpadded_cod = center_crop(pred_stitched_cod, height, width, image = False)
-        pred_unpadded_cod = pred_unpadded_cod[:,:,0]
+        pred_unpadded_cod = np.sum(pred_unpadded_cod, axis=-1)/2
+        # pred_unpadded_cod = pred_unpadded_cod[:,:,0]
 
         print(np.min(pred_unpadded_cod), np.max(pred_unpadded_cod))
         print("pred_cod_shape: ", pred_unpadded_cod.shape)
@@ -1077,13 +1089,13 @@ def recommend_superpixels(TEST_REGION, entropy, probability, transformation_agg,
     
     if config.PROBABILITY:
         # get aggregate score of each superpixel
-        superpixel_scores = get_superpixel_scores(superpixels_group, pred_unpadded, config.SUPERPIXEL_SCORE)
+        superpixel_scores = get_superpixel_scores(superpixels_group, pred_unpadded, forest_prob, config.SUPERPIXEL_SCORE)
 
         # sort by prob score in ascending order; most uncertain superpixel first (whichever is close to 0.5)
         superpixel_scores = dict(sorted(superpixel_scores.items(), key=lambda item: item[1]))
     elif config.ENTROPY:
         # get aggregate score of each superpixel
-        superpixel_scores = get_superpixel_scores(superpixels_group, entropy_unpadded, config.SUPERPIXEL_SCORE)
+        superpixel_scores = get_superpixel_scores(superpixels_group, entropy_unpadded, forest_prob, config.SUPERPIXEL_SCORE)
 
         # sort by prob score in descending order; highest entropy first
         superpixel_scores = dict(sorted(superpixel_scores.items(), key=lambda item: item[1]), reverse=True)
@@ -1119,17 +1131,13 @@ def recommend_superpixels(TEST_REGION, entropy, probability, transformation_agg,
         recommended_superpixels[tuple(zip(*pixels))] = slot_values[max_items - i - 1]
     
     mask = np.where(recommended_superpixels > 0, 1, 0)
-    mask_blue = np.where((accepted_sub_pixels == 1) & (recommended_superpixels > 0))
-    # mask_blue = mask_blue * mask
+    mask_blue = np.where((accepted_sub_pixels == 1) & (recommended_superpixels > 0)) # For blue holes in superpixel !!!!!!
     mask = np.expand_dims(mask, axis=-1)
     recommended_superpixels = recommended_superpixels.astype('float32')
     result_array = convert_to_rgb(recommended_superpixels)
     result_array = result_array * mask
 
-    # accepted_sub_pixels = np.expand_dims(accepted_sub_pixels, axis=-1)
-    # result_array = result_array * accepted_sub_pixels
-    # mask_blue = np.where(accepted_sub_pixels == 1)
-    result_array[mask_blue] = [0.0, 0.0, 1.0]
+    result_array[mask_blue] = [0.0, 0.0, 1.0] # For blue holes in superpixel !!!!!!
 
     print(result_array.shape)
     plt.imsave(f'./users/{student_id}/output/R{TEST_REGION}_superpixels_test.png', result_array)
@@ -1224,9 +1232,9 @@ def train(TEST_REGION, entropy, probability, transformation_agg, superpixel_agg,
         config.PROBABILITY = 1
 
 
-    recommend_superpixels(TEST_REGION, config.ENTROPY, config.PROBABILITY, transformation_agg, superpixel_agg, student_id, al_cycle, updated_labels=None)
+    # recommend_superpixels(TEST_REGION, config.ENTROPY, config.PROBABILITY, transformation_agg, superpixel_agg, student_id, al_cycle, updated_labels=None)
 
-    return
+    # return
     # time.sleep(5)
     # return # TODO: remove after test
 
@@ -1376,7 +1384,7 @@ def train(TEST_REGION, entropy, probability, transformation_agg, superpixel_agg,
             # Calculate 3 loss and aggregate them
             supervised_loss = (loss1 + loss2 + loss3 + loss4 + loss5 + loss6)/6
             self_consistency_loss = loss_self_consistency(all_logits, labels)
-            ema_loss = F.mse_loss(pred_backbone * unknown_mask, pred_ema * unknown_mask) # TODO: unknown mask prevents known pixels from being included in the loss computation
+            ema_loss = F.mse_loss(pred_backbone * unknown_mask, pred_ema * unknown_mask) # unknown mask prevents known pixels from being included in the loss computation
 
             total_loss = supervised_loss + config.LAMBDA_1 * self_consistency_loss + config.LAMBDA_2 * ema_loss # TODO: these hyperparams should be tuned
 
