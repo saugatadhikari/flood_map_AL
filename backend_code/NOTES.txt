@@ -98,9 +98,13 @@ Forest model
 3. Integrate forest score in acquisition function instead of banning them: TODO
 
 Active Learning
-1. Figure out how to use TOD as well as Uncertainty-Measure: TODO
-2. Study TOD code; Acquisition and Loss function using EMA: TODO
-3. For unsupervised loss, only take unlabeled regions: TODO
+
+TODO: check, for 2 classes, whether to take sum or just flood class????????
+
+
+1. Figure out how to use TOD as well as Uncertainty-Measure: DONE
+2. Study TOD code; Acquisition and Loss function using EMA: DONE
+3. For unsupervised loss, only take unlabeled regions: DONE
 4. Metrics: remove quotation, Acc on top (only one), space between dry and flood metrics, space after accuracy, Align: TODO
 5. When Entropy is selected, Minimum option should change to Maximum: TODO
 6. change notations on slides: TODO

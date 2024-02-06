@@ -169,7 +169,7 @@ def run_pred_al_cod(models, data_loader):
         pred_cod = models['cod'](rgb_data, norm_elev_data)
 
         cod_loss = (pred_backbone - pred_cod).pow(2)
-        print("cod_loss: ", cod_loss.shape)
+        # print("cod_loss: ", cod_loss.shape)
         final_prob_np = cod_loss.detach().cpu().numpy()
 
         pred_np = pred_backbone.detach().cpu().numpy()
@@ -378,12 +378,11 @@ def run_pred_al_entropy(model, data_loader, TRANSFORMATION_SCORE):
 
         # all_logits = [pred, pred_flipx_inv, pred_flipy_inv, pred_rot90_inv, pred_rot180_inv, pred_rot270_inv]
         all_logits = [pred, pred_flipx_inv, pred_flipy_inv, pred_rot90_inv, pred_rot180_inv, pred_rot270_inv]
-  
+
         entropy = compute_entropy(all_logits, TRANSFORMATION_SCORE)
 
         pred_np = pred.detach().cpu().numpy()
         entropy_np = entropy.detach().cpu().numpy()
-        
  
         for idx in range(rgb_data.shape[0]):
             entropy_patches_dict[filename[idx]] = entropy_np[idx, :, :, :]
@@ -397,9 +396,7 @@ def compute_entropy(outputs, TRANSFORMATION_SCORE):
     counter = 0
     entropy_list = []
     for i, output in enumerate(outputs):
-        # print("output_shape: ", output.shape)
         prob_out = torch.nn.functional.softmax(output, dim = 1)
-        # print("prob_out_shape: ", prob_out.shape)
 
         log_out =-1* torch.log(prob_out)
         log_out[log_out != log_out] = 0
@@ -408,7 +405,9 @@ def compute_entropy(outputs, TRANSFORMATION_SCORE):
         log_out[log_out == float("-Inf")] = 0
 
         entropy_computed = log_out * prob_out
+
         # print("entropy_computed_shape: ", entropy_computed.shape)
+        # print(torch.min(entropy_computed, dim=1).values, torch.max(entropy_computed, dim=1).values)
         # entropy_map = torch.sum(entropy_computed, dim=1) # summation over c in paper
 
         if TRANSFORMATION_SCORE != "AVG":
@@ -416,19 +415,18 @@ def compute_entropy(outputs, TRANSFORMATION_SCORE):
         entropy_list.append(entropy_computed)
 
         if i == 0:
-            numpy_ent_total = entropy_computed
+            numpy_ent_total = torch.clone(entropy_computed)
             # stacked_entropy = entropy_computed
         else:
-            numpy_ent_total += entropy_computed
+            numpy_ent_total = numpy_ent_total +  torch.clone(entropy_computed)
             # stacked_entropy = torch.stack([stacked_entropy, entropy_computed])
         
         counter += 1
-        
-        # print("numpy_ent_total_shape: ", numpy_ent_total.shape)
+
     stacked_entropy = torch.cat(entropy_list, dim=1)
 
     if TRANSFORMATION_SCORE == "AVG":
-        return (entropy_computed / counter)
+        return (numpy_ent_total / counter)
     elif TRANSFORMATION_SCORE == "MIN":
         return torch.min(stacked_entropy, dim=1).values
     elif TRANSFORMATION_SCORE == "MAX":
@@ -1024,6 +1022,8 @@ def recommend_superpixels(TEST_REGION, entropy, probability, transformation_agg,
     test_loader = DataLoader(test_dataset, batch_size = config.BATCH_SIZE)
 
     # TODO: initialize pred_unpadded and entropy unpadded to zeros
+    pred_unpadded = torch.tensor(np.zeros((height, width)))
+    entropy_unpadded = torch.tensor(np.zeros((height, width)))
 
     if config.ENTROPY:
         pred_patches_dict, entropy_patches_dict = run_pred_al_entropy(models['backbone'], test_loader, config.TRANSFORMATION_SCORE)
@@ -1043,6 +1043,10 @@ def recommend_superpixels(TEST_REGION, entropy, probability, transformation_agg,
         pred_unpadded = center_crop(pred_stitched, height, width, image = False)
         pred_unpadded = pred_unpadded[:,:,0] # TODO: make sure this score is always between 0 - 0.5
 
+        print(np.min(pred_unpadded), np.max(pred_unpadded))
+        print("pred_shape: ", pred_unpadded.shape)
+
+
         # superpixel_scores = get_superpixel_scores(superpixels_group, pred_unpadded, config.SUPERPIXEL_SCORE)
     
         # # sort by prob score in ascending order; most uncertain superpixel first (whichever is close to 0.5)
@@ -1056,13 +1060,19 @@ def recommend_superpixels(TEST_REGION, entropy, probability, transformation_agg,
         pred_unpadded_cod = center_crop(pred_stitched_cod, height, width, image = False)
         pred_unpadded_cod = pred_unpadded_cod[:,:,0]
 
-        # TODO: see how this score can be used together with uncertainty measures above!!!
+        print(np.min(pred_unpadded_cod), np.max(pred_unpadded_cod))
+        print("pred_cod_shape: ", pred_unpadded_cod.shape)
+
         if config.PROBABILITY:
             # compute the weighted sum to 2 uncertainty scores (probability offset and COD)
             pred_unpadded = config.LAMBDA_1_UNCERTAINTY * pred_unpadded + config.LAMBDA_2_UNCERTAINTY * pred_unpadded_cod
+
+            print(np.min(pred_unpadded), np.max(pred_unpadded))
         elif config.ENTROPY:
             # compute the weighted sum to 2 uncertainty scores (entropy and COD); higher entropy means recommend so we add (1 - pred_unpadded_cod)
             entropy_unpadded = config.LAMBDA_1_UNCERTAINTY * entropy_unpadded + config.LAMBDA_2_UNCERTAINTY * (1 - pred_unpadded_cod)
+
+            print(np.min(entropy_unpadded), np.max(entropy_unpadded))
 
     
     if config.PROBABILITY:
@@ -1165,6 +1175,7 @@ def ann_to_labels(png_image, TEST_REGION):
 
 
 def train(TEST_REGION, entropy, probability, transformation_agg, superpixel_agg, student_id, al_cycle, al_iters):
+
     student_id = student_id.strip()
 
     print("Retraining the Model with new labels")
@@ -1212,6 +1223,10 @@ def train(TEST_REGION, entropy, probability, transformation_agg, superpixel_agg,
     if (entropy == 0 and probability == 0):
         config.PROBABILITY = 1
 
+
+    recommend_superpixels(TEST_REGION, config.ENTROPY, config.PROBABILITY, transformation_agg, superpixel_agg, student_id, al_cycle, updated_labels=None)
+
+    return
     # time.sleep(5)
     # return # TODO: remove after test
 
