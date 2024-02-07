@@ -283,7 +283,7 @@ var predictionTexture: THREE.Texture // saugat
 var superpixelTexture: THREE.Texture // saugat
 var confidenceTexture: THREE.Texture // saugat
 
-const gui = new GUI({ width: window.innerWidth / 5 })
+const gui = new GUI({ width: window.innerWidth / 6 })
 var params = {
     blur: 0,
     dimension: metaState.flat == 0,
@@ -303,10 +303,13 @@ var params = {
     superpixelKey: 0, // saugat
     entropy: false,
     probability: true,
+    cod: false,
     avgTransformation: true,
     minTransformation: false,
+    maxTransformation: false,
     avgSuperpixel: true,
     minSuperpixel: false,
+    maxSuperpixel: false,
 }
 let persIndex: { [key: number]: number } = {
     1: 0.32,
@@ -346,10 +349,13 @@ var uniforms = {
     quadrant: { value: metaState.quadrant },
     entropy: { value: 0 },
     probability: { value: 1 },
+    cod: { value: 0 },
     avgTransformation: {value: 1},
     minTransformation: {value: 0},
+    maxTransformation: {value: 0},
     avgSuperpixel: {value: 1},
     minSuperpixel: {value: 0},
+    maxSuperpixel: {value: 0},
 }
 const viewFolder = gui.addFolder('Settings')
 const scFolder = gui.addFolder('Uncertainty Measure')
@@ -591,13 +597,37 @@ viewFolder.open()
 
 const checkboxValues = {
     probability: true,
-    entropy: false
+    entropy: false,
+    cod: false
+};
+
+const checkboxValuesTransformation = {
+    avgTransformation: true,
+    minTransformation: false,
+    maxTransformation: false
+};
+
+const checkboxValuesSuperpixel = {
+    avgSuperpixel: true,
+    minSuperpixel: false,
+    maxSuperpixel: false
 };
 
 
 // Add checkboxes to the folder
 const probability = scFolder.add(checkboxValues, 'probability').name('Probability');
 const entropy = scFolder.add(checkboxValues, 'entropy').name('Entropy');
+const cod = scFolder.add(checkboxValues, 'cod').name('COD');
+
+// Add checkboxes to the folder
+const avgTransformation = transformationFolder.add(checkboxValuesTransformation, 'avgTransformation').name('Average');
+const minTransformation = transformationFolder.add(checkboxValuesTransformation, 'minTransformation').name('Minimum');
+const maxTransformation = transformationFolder.add(checkboxValuesTransformation, 'maxTransformation').name('Maximum');
+
+// Add checkboxes to the folder
+const avgSuperpixel = superpixelFolder.add(checkboxValuesSuperpixel, 'avgSuperpixel').name('Average');
+const minSuperpixel = superpixelFolder.add(checkboxValuesSuperpixel, 'minSuperpixel').name('Minimum');
+const maxSuperpixel = superpixelFolder.add(checkboxValuesSuperpixel, 'maxSuperpixel').name('Maximum');
 
 // Set up the mutual exclusivity behavior
 probability.onChange(function (value) {
@@ -607,6 +637,13 @@ probability.onChange(function (value) {
         uniforms.probability.value = 1;
         params.entropy = false;
         uniforms.entropy.value = 0;
+
+        maxSuperpixel.domElement.style.opacity = "0.1"
+        maxTransformation.domElement.style.opacity = "0.1";
+    }
+    else{
+        maxSuperpixel.domElement.style.opacity = "1";
+        maxTransformation.domElement.style.opacity = "1";
     }
     
 });
@@ -618,20 +655,23 @@ entropy.onChange(function (value) {
         uniforms.entropy.value = 1;
         params.probability = false;
         uniforms.probability.value = 0;
+
+        minSuperpixel.domElement.style.opacity = "0.1"
+        minTransformation.domElement.style.opacity = "0.1";
+    } else {
+        minSuperpixel.domElement.style.opacity = "1";
+        minTransformation.domElement.style.opacity = "1";
+    }
+});
+
+cod.onChange(function (value) {
+    if (value) {
+        params.cod = true;
+        uniforms.cod.value = 1;
     }
 });
 
 scFolder.open()
-
-const checkboxValuesTransformation = {
-    avgTransformation: true,
-    minTransformation: false
-};
-
-
-// Add checkboxes to the folder
-const avgTransformation = transformationFolder.add(checkboxValuesTransformation, 'avgTransformation').name('Average');
-const minTransformation = transformationFolder.add(checkboxValuesTransformation, 'minTransformation').name('Minimum');
 
 // Set up the mutual exclusivity behavior
 avgTransformation.onChange(function (value) {
@@ -641,31 +681,60 @@ avgTransformation.onChange(function (value) {
         uniforms.avgTransformation.value = 1;
         params.minTransformation = false;
         uniforms.minTransformation.value = 0;
+
+        maxTransformation.setValue(false);
+        params.maxTransformation = false;
+        uniforms.maxTransformation.value = 0;
     }
     
 });
 
 minTransformation.onChange(function (value) {
     if (value) {
-        avgTransformation.setValue(false);
-        params.minTransformation = true;
-        uniforms.minTransformation.value = 1;
-        params.avgTransformation = false;
-        uniforms.avgTransformation.value = 0;
+        if (params.probability == true){
+            avgTransformation.setValue(false);
+            params.minTransformation = true;
+            uniforms.minTransformation.value = 1;
+            params.avgTransformation = false;
+            uniforms.avgTransformation.value = 0;
+
+            maxTransformation.setValue(false);
+            params.maxTransformation = false;
+            uniforms.maxTransformation.value = 0;
+        }
+        else if (params.entropy == true){
+            minTransformation.setValue(false);
+            params.minTransformation = false;
+            uniforms.minTransformation.value = 0;
+        }
+        
+    }
+});
+
+maxTransformation.onChange(function (value) {
+    if (value) {
+        if (params.entropy == true){
+            avgTransformation.setValue(false);
+            minTransformation.setValue(false);
+            params.avgTransformation = false;
+            uniforms.avgTransformation.value = 0;
+
+            params.maxTransformation = true;
+            uniforms.maxTransformation.value = 1;
+
+            params.minTransformation = false;
+            uniforms.minTransformation.value = 0;
+        }
+        else if (params.probability == true){
+            maxTransformation.setValue(false);
+            params.maxTransformation = false;
+            uniforms.maxTransformation.value = 0;
+        }
     }
 });
 
 transformationFolder.open()
 
-const checkboxValuesSuperpixel = {
-    avgSuperpixel: true,
-    minSuperpixel: false
-};
-
-
-// Add checkboxes to the folder
-const avgSuperpixel = superpixelFolder.add(checkboxValuesSuperpixel, 'avgSuperpixel').name('Average');
-const minSuperpixel = superpixelFolder.add(checkboxValuesSuperpixel, 'minSuperpixel').name('Minimum');
 
 // Set up the mutual exclusivity behavior
 avgSuperpixel.onChange(function (value) {
@@ -675,21 +744,61 @@ avgSuperpixel.onChange(function (value) {
         uniforms.avgSuperpixel.value = 1;
         params.minSuperpixel = false;
         uniforms.minSuperpixel.value = 0;
+
+        maxSuperpixel.setValue(false);
+        params.maxSuperpixel = false;
+        uniforms.maxSuperpixel.value = 0;
     }
     
 });
 
 minSuperpixel.onChange(function (value) {
     if (value) {
-        avgSuperpixel.setValue(false);
-        params.minSuperpixel = true;
-        uniforms.minSuperpixel.value = 1;
-        params.avgSuperpixel = false;
-        uniforms.avgSuperpixel.value = 0;
+        if (params.probability == true){
+            avgSuperpixel.setValue(false);
+            params.minSuperpixel = true;
+            uniforms.minSuperpixel.value = 1;
+            params.avgSuperpixel = false;
+            uniforms.avgSuperpixel.value = 0;
+
+            maxSuperpixel.setValue(false);
+            params.maxSuperpixel = false;
+            uniforms.maxSuperpixel.value = 0;
+        }
+        else if (params.entropy == true){
+            minSuperpixel.setValue(false);
+            params.minSuperpixel = false;
+            uniforms.minSuperpixel.value = 0;
+        }
+    }
+});
+
+maxSuperpixel.onChange(function (value) {
+    if (value) {
+        if (params.entropy == true){
+            avgSuperpixel.setValue(false);
+            minSuperpixel.setValue(false);
+
+            params.maxSuperpixel = true;
+            uniforms.maxSuperpixel.value = 1;
+            
+            params.minSuperpixel = false;
+            uniforms.minSuperpixel.value = 0;
+
+            params.avgSuperpixel = false;
+            uniforms.avgSuperpixel.value = 0;
+        }
+        else if (params.probability == true){
+            maxSuperpixel.setValue(false);
+            params.maxSuperpixel = false;
+            uniforms.maxSuperpixel.value = 0;
+        }
     }
 });
 
 superpixelFolder.open()
+
+
 
 function segSelect(x: number, y: number, color: string) {
     context!.fillStyle = color
@@ -1702,11 +1811,12 @@ var texContext : CanvasRenderingContext2D
                                 const preElement = document.createElement('pre');
 
                                 // Convert JSON object to a string with indentation
-                                const jsonString = JSON.stringify(metrices, null, 2);
-                                const jsonStringWithoutBraces = jsonString.slice(1, -1);
+                                // const jsonString = JSON.stringify(metrices, null, 2);
+                                // const jsonStringWithoutBraces = metrices.slice(1, -1);
+
 
                                 // Set the content of the <pre> element to the formatted JSON string
-                                preElement.textContent = jsonStringWithoutBraces;
+                                preElement.textContent = metrices;
 
                                 // Append the <pre> element to the container
                                 jsonContainer.innerHTML = '';

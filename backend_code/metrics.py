@@ -51,7 +51,7 @@ class Evaluator():
         self.DRY_RECALL = ((TP_0)/(TP_0+FN_0))*100
         print("Dry Recall: ", self.DRY_RECALL)
         self.DRY_FSCORE = ((2*self.DRY_PRECISION*self.DRY_RECALL)/(self.DRY_PRECISION+self.DRY_RECALL))
-        print("Dry F-score: ", self.DRY_FSCORE)
+        print("Dry F1 score: ", self.DRY_FSCORE)
         
         print("\n")
         
@@ -63,20 +63,43 @@ class Evaluator():
         self.FLOOD_RECALL = ((TP_1)/(TP_1+FN_1))*100
         print("Flood Recall: ", self.FLOOD_RECALL)
         self.FLOOD_FSCORE = ((2*self.FLOOD_PRECISION*self.FLOOD_RECALL)/(self.FLOOD_PRECISION+self.FLOOD_RECALL))
-        print("Flood F-score: ", self.FLOOD_FSCORE)
+        print("Flood F1 score: ", self.FLOOD_FSCORE)
 
         metrices = {
-            "Dry Accuracy": float("{:.2f}".format(self.DRY_ACC)),
+            "Accuracy": float("{:.2f}".format(self.DRY_ACC)),
             "Dry Precision": float("{:.2f}".format(self.DRY_PRECISION)),
             "Dry Recall": float("{:.2f}".format(self.DRY_RECALL)),
-            "Dry F-score": float("{:.2f}".format(self.DRY_FSCORE)),
-            "Flood Accuracy": float("{:.2f}".format(self.FLOOD_ACC)),
+            "Dry F1 score": float("{:.2f}".format(self.DRY_FSCORE)),
             "Flood Precision": float("{:.2f}".format(self.FLOOD_PRECISION)),
             "Flood Recall": float("{:.2f}".format(self.FLOOD_RECALL)),
-            "Flood F-score": float("{:.2f}".format(self.FLOOD_FSCORE)),
+            "Flood F1 score": float("{:.2f}".format(self.FLOOD_FSCORE)),
         }
 
-        return metrices
+        dry_acc = float("{:.2f}".format(self.DRY_ACC))
+        dry_precision = float("{:.2f}".format(self.DRY_PRECISION))
+        dry_recall = float("{:.2f}".format(self.DRY_RECALL))
+        dry_f1 = float("{:.2f}".format(self.DRY_FSCORE))
+        flood_precision = float("{:.2f}".format(self.FLOOD_PRECISION))
+        flood_recall = float("{:.2f}".format(self.FLOOD_RECALL))
+        flood_f1 = float("{:.2f}".format(self.FLOOD_FSCORE))
+
+        metrices_str = "   Metrics (Unit: %)    "
+        metrices_str += "\n\n"
+        metrices_str += f"Accuracy         : {dry_acc}"
+        metrices_str += "\n\n"
+        metrices_str += f"Dry Precision    : {dry_precision}"
+        metrices_str += "\n"
+        metrices_str += f"Dry Recall       : {dry_recall}"
+        metrices_str += "\n"
+        metrices_str += f"Dry F1 score     : {dry_f1}"
+        metrices_str += "\n\n"
+        metrices_str += f"Flood Precision  : {flood_precision}"
+        metrices_str += "\n"
+        metrices_str += f"Flood Recall     : {flood_recall}"
+        metrices_str += "\n"
+        metrices_str += f"Flood F1 score   : {flood_f1}"
+
+        return metrices_str
 
         
     

@@ -876,7 +876,7 @@ def convert_to_rgb(input_array):
     return rgb_image
 
 
-def recommend_superpixels(TEST_REGION, entropy, probability, transformation_agg, superpixel_agg, student_id, al_cycle, updated_labels=None):
+def recommend_superpixels(TEST_REGION, entropy, probability, cod, transformation_agg, superpixel_agg, student_id, al_cycle, updated_labels=None):
     student_id = student_id.strip()
 
     if not os.path.exists(f"./users/{student_id}"):
@@ -896,6 +896,7 @@ def recommend_superpixels(TEST_REGION, entropy, probability, transformation_agg,
 
     config.ENTROPY = entropy
     config.PROBABILITY = probability
+    config.COD = cod
 
     if transformation_agg.strip().lower() == 'avg':
         config.TRANSFORMATION_SCORE = 'AVG'
@@ -1114,9 +1115,14 @@ def recommend_superpixels(TEST_REGION, entropy, probability, transformation_agg,
     gt_labels = np.load(f"./data_al/repo/groundTruths/Region_{TEST_REGION}_GT_Labels.npy")
     metrices = elev_eval.run_eval(pred_final, gt_labels)
 
-    file_path = f"./users/{student_id}/output/Region_{TEST_REGION}_Metrics.json"
-    with open(file_path, "w") as json_file:
-        json.dump(metrices, json_file, indent=4)
+    print(metrices)
+
+    file_path = f"./users/{student_id}/output/Region_{TEST_REGION}_Metrics.txt"
+    # with open(file_path, "w") as json_file:
+    #     json.dump(metrices, json_file, indent=4)
+
+    with open(file_path, "w") as fp:
+        fp.write(metrices)
 
     
     # get the superpixels to be recommended in this iteration and save as png
@@ -1182,7 +1188,7 @@ def ann_to_labels(png_image, TEST_REGION):
     return final_arr
 
 
-def train(TEST_REGION, entropy, probability, transformation_agg, superpixel_agg, student_id, al_cycle, al_iters):
+def train(TEST_REGION, entropy, probability, cod, transformation_agg, superpixel_agg, student_id, al_cycle, al_iters):
 
     student_id = student_id.strip()
 
@@ -1212,24 +1218,25 @@ def train(TEST_REGION, entropy, probability, transformation_agg, superpixel_agg,
 
     config.ENTROPY = entropy
     config.PROBABILITY = probability
+    config.COD = cod
 
     if transformation_agg.strip().lower() == 'avg':
         config.TRANSFORMATION_SCORE = 'AVG'
-    elif config.ENTROPY:
+    elif transformation_agg.strip().lower() == 'max':
         config.TRANSFORMATION_SCORE = 'MAX'
-    else:
+    elif transformation_agg.strip().lower() == 'min':
         config.TRANSFORMATION_SCORE = 'MIN'
 
     if superpixel_agg.strip().lower() == 'avg':
         config.SUPERPIXEL_SCORE = 'AVG'
-    elif config.ENTROPY:
+    elif superpixel_agg.strip().lower() == 'max':
         config.SUPERPIXEL_SCORE = 'MAX'
-    else:
+    elif superpixel_agg.strip().lower() == 'min':
         config.SUPERPIXEL_SCORE = 'MIN'
 
     # fallback if user choose both to be 0
-    if (entropy == 0 and probability == 0):
-        config.PROBABILITY = 1
+    # if (entropy == 0 and probability == 0):
+    #     config.PROBABILITY = 1
 
 
     # recommend_superpixels(TEST_REGION, config.ENTROPY, config.PROBABILITY, transformation_agg, superpixel_agg, student_id, al_cycle, updated_labels=None)
@@ -1426,7 +1433,7 @@ def train(TEST_REGION, entropy, probability, transformation_agg, superpixel_agg,
     
 
     # call AL pipeline once the model is retrained
-    recommend_superpixels(TEST_REGION, config.ENTROPY, config.PROBABILITY, transformation_agg, superpixel_agg, student_id, al_cycle, updated_labels=updated_labels)
+    recommend_superpixels(TEST_REGION, config.ENTROPY, config.PROBABILITY, config.COD, transformation_agg, superpixel_agg, student_id, al_cycle, updated_labels=updated_labels)
 
     torch.save({'epoch': last_epoch,  # when resuming, we will start at the next epoch
                 'model': models['backbone'].state_dict(),

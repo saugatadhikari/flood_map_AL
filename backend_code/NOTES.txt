@@ -95,18 +95,15 @@
 Forest model
 1. prepare detailed instructions for Forest Model: DONE
 2. Change retrain button and Download button's UI: DONE
-3. Integrate forest score in acquisition function instead of banning them: TODO
+
 
 Active Learning
-
-TODO: check, for 2 classes, whether to take sum or just flood class????????
-
 
 1. Figure out how to use TOD as well as Uncertainty-Measure: DONE
 2. Study TOD code; Acquisition and Loss function using EMA: DONE
 3. For unsupervised loss, only take unlabeled regions: DONE
-4. Metrics: remove quotation, Acc on top (only one), space between dry and flood metrics, space after accuracy, Align: TODO
-5. When Entropy is selected, Minimum option should change to Maximum: TODO
+4. Metrics: remove quotation, Acc on top (only one), space between dry and flood metrics, space after accuracy, Align: DONE
+5. When Entropy is selected, Minimum option should be disabled; For probability, Max option should be disabled: DONE
 6. change notations on slides: TODO
 
 About TOD Code:
@@ -115,7 +112,7 @@ About TOD Code:
 
 01/31
 1. Test Region 1: remove obvious flood 
-2. try log prob for + and - for voting down superpixel: AND relation
+2. Integrate forest score in acquisition function instead of banning them: try log prob for + and - for voting down superpixel: AND relation
 
 3. make instructions more formal; even add enter password instructions --> add toy example: DONE
 4. also Download annotation (blue and green): DONE

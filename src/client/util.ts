@@ -620,10 +620,16 @@ async function retrainSession(event: Event) {
     if (uniforms.minTransformation.value){
         transformation_agg = 'min'
     }
+    else if (uniforms.maxTransformation.value){
+        transformation_agg = 'max'
+    }
 
     var superpixel_agg = 'avg';
     if (uniforms.minSuperpixel.value){
         superpixel_agg = 'min'
+    }
+    else if (uniforms.maxSuperpixel.value){
+        superpixel_agg = 'max'
     }
 
     showLoadingScreen();
@@ -631,6 +637,7 @@ async function retrainSession(event: Event) {
     const response = await fetch(`http://127.0.0.1:5000/retrain?taskId=${taskId}
                                     &entropy=${uniforms.entropy.value}
                                     &probability=${uniforms.probability.value}
+                                    &cod=${uniforms.cod.value}
                                     &transformation_agg=${transformation_agg}
                                     &superpixel_agg=${superpixel_agg}
                                     ?taskId=${taskId}
