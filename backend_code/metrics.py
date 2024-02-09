@@ -45,25 +45,25 @@ class Evaluator():
         
         ####DRY
         self.DRY_ACC = ((TP_0+TN_0)/(TP_0+TN_0+FP_0+FN_0))*100
-        print("Dry Accuracy: ", self.DRY_ACC)
+        # print("Dry Accuracy: ", self.DRY_ACC)
         self.DRY_PRECISION = ((TP_0)/(TP_0+FP_0))*100
-        print("Dry Precision: ", self.DRY_PRECISION)
+        # print("Dry Precision: ", self.DRY_PRECISION)
         self.DRY_RECALL = ((TP_0)/(TP_0+FN_0))*100
-        print("Dry Recall: ", self.DRY_RECALL)
+        # print("Dry Recall: ", self.DRY_RECALL)
         self.DRY_FSCORE = ((2*self.DRY_PRECISION*self.DRY_RECALL)/(self.DRY_PRECISION+self.DRY_RECALL))
-        print("Dry F1 score: ", self.DRY_FSCORE)
+        # print("Dry F1 score: ", self.DRY_FSCORE)
         
-        print("\n")
+        # print("\n")
         
         ####FLOOD
         self.FLOOD_ACC = ((TP_1+TN_1)/(TP_1+TN_1+FP_1+FN_1))*100
-        print("Flood Accuracy: ", self.FLOOD_ACC)
+        # print("Flood Accuracy: ", self.FLOOD_ACC)
         self.FLOOD_PRECISION = ((TP_1)/(TP_1+FP_1))*100
-        print("Flood Precision: ", self.FLOOD_PRECISION)
+        # print("Flood Precision: ", self.FLOOD_PRECISION)
         self.FLOOD_RECALL = ((TP_1)/(TP_1+FN_1))*100
-        print("Flood Recall: ", self.FLOOD_RECALL)
+        # print("Flood Recall: ", self.FLOOD_RECALL)
         self.FLOOD_FSCORE = ((2*self.FLOOD_PRECISION*self.FLOOD_RECALL)/(self.FLOOD_PRECISION+self.FLOOD_RECALL))
-        print("Flood F1 score: ", self.FLOOD_FSCORE)
+        # print("Flood F1 score: ", self.FLOOD_FSCORE)
 
         metrices = {
             "Accuracy": float("{:.2f}".format(self.DRY_ACC)),
