@@ -724,12 +724,12 @@ async function retrainSession(event: Event) {
             // Create a <pre> element to display formatted JSON
             const preElement = document.createElement('pre');
 
-            // Convert JSON object to a string with indentation
-            const jsonString = JSON.stringify(metrices, null, 2);
-            const jsonStringWithoutBraces = jsonString.slice(1, -1);
+            // // Convert JSON object to a string with indentation
+            // const jsonString = JSON.stringify(metrices, null, 2);
+            // const jsonStringWithoutBraces = jsonString.slice(1, -1);
 
             // Set the content of the <pre> element to the formatted JSON string
-            preElement.textContent = jsonStringWithoutBraces;
+            preElement.textContent = metrices;
 
             // Append the <pre> element to the container
             jsonContainer.innerHTML = '';

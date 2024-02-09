@@ -674,8 +674,12 @@ def get_superpixel_scores(superpixels_group, logits, forest_prob, SUPERPIXEL_SCO
             forest_score = forest_prob[row][col]
 
             # Vote down the superpixel based on forest model probability score
-            if config.PROBABILITY:
+            if config.PROBABILITY and config.TAKE_PRODUCT:
+                prob_score *= forest_score
+            elif config.PROBABILITY:
                 prob_score += forest_score
+            elif config.ENTROPY and config.TAKE_PRODUCT:
+                prob_score *= (-math.log(forest_score))
             elif config.ENTROPY:
                 prob_score -= forest_score
             elif config.COD:
