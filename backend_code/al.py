@@ -1104,6 +1104,16 @@ def recommend_superpixels(TEST_REGION, entropy, probability, cod, transformation
 
         # sort by prob score in descending order; highest entropy first
         superpixel_scores = dict(sorted(superpixel_scores.items(), key=lambda item: item[1]), reverse=True)
+    elif config.COD:
+        superpixel_score = config.SUPERPIXEL_SCORE
+        if config.SUPERPIXEL_SCORE == "MIN":
+            superpixel_score = "MAX"
+            
+        # get aggregate score of each superpixel
+        superpixel_scores = get_superpixel_scores(superpixels_group, pred_unpadded_cod, forest_prob, superpixel_score)
+
+        # sort by prob score in ascending order; most uncertain superpixel first (whichever is close to 0.5)
+        superpixel_scores = dict(sorted(superpixel_scores.items(), key=lambda item: item[1]), reverse=True)
 
     # select top-N superpixels
     selected_superpixels, max_items = select_superpixels(total_superpixels, superpixel_scores, forest_superpixels)
