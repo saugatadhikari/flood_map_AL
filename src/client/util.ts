@@ -640,7 +640,6 @@ async function retrainSession(event: Event) {
                                     &cod=${uniforms.cod.value}
                                     &transformation_agg=${transformation_agg}
                                     &superpixel_agg=${superpixel_agg}
-                                    ?taskId=${taskId}
                                     &testRegion=${testRegion}`, {
                         method: 'POST',
                         body: formData,

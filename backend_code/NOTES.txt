@@ -108,15 +108,14 @@ Active Learning
 
 About TOD Code:
 1. main_TOD.py: train_epoch() function, why do we need res_loss? Its always zero, right? 
-   scores and cons_scores use to compute mse_loss looks exactly same to me!
+   scores and cons_scores used to compute mse_loss looks exactly same to me!
 
 01/31
-1. Test Region 1: remove obvious flood 
-2. Integrate forest score in acquisition function instead of banning them: try log prob for + and - for voting down superpixel: AND relation
+1. Integrate forest score in acquisition function instead of banning them: try log prob for + and - for voting down superpixel: AND relation
 
-3. make instructions more formal; even add enter password instructions --> add toy example: DONE
-4. also Download annotation (blue and green): DONE
-5. create a sign up form in frontend for students --> UAB's Office 365 Form: DONE
+2. make instructions more formal; even add enter password instructions --> add toy example: DONE
+3. also Download annotation (blue and green): DONE
+4. create a sign up form in frontend for students --> UAB's Office 365 Form: DONE
  --> 2 images per students
  --> make it work for toy example
  --> attach toy example to add restrictions

@@ -1082,12 +1082,12 @@ def recommend_superpixels(TEST_REGION, entropy, probability, cod, transformation
 
         if config.PROBABILITY:
             # compute the weighted sum to 2 uncertainty scores (probability offset and COD)
-            pred_unpadded = config.LAMBDA_1_UNCERTAINTY * pred_unpadded + config.LAMBDA_2_UNCERTAINTY * pred_unpadded_cod
+            pred_unpadded = config.LAMBDA_1_UNCERTAINTY * pred_unpadded + config.LAMBDA_2_UNCERTAINTY * (1 - pred_unpadded_cod) # for PROB: 0 means uncertain; for COD: 1 means uncertain 
 
             print(np.min(pred_unpadded), np.max(pred_unpadded))
         elif config.ENTROPY:
             # compute the weighted sum to 2 uncertainty scores (entropy and COD); higher entropy means recommend so we add (1 - pred_unpadded_cod)
-            entropy_unpadded = config.LAMBDA_1_UNCERTAINTY * entropy_unpadded + config.LAMBDA_2_UNCERTAINTY * (1 - pred_unpadded_cod)
+            entropy_unpadded = config.LAMBDA_1_UNCERTAINTY * entropy_unpadded + config.LAMBDA_2_UNCERTAINTY * pred_unpadded_cod # for ENT: 1 means uncertain; for COD: 1 means uncertain
 
             print(np.min(entropy_unpadded), np.max(entropy_unpadded))
 
