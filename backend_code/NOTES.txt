@@ -89,6 +89,7 @@
 2. Transform-level Agg, Pixel-level Agg: Frontend: DONE
 3. Forest Model: Switch to slides for details
 4. Read paper and be ready for discussion next week: DONE
+5. change notations on slides: TODO
 
 
 01/24
@@ -104,7 +105,7 @@ Active Learning
 3. For unsupervised loss, only take unlabeled regions: DONE
 4. Metrics: remove quotation, Acc on top (only one), space between dry and flood metrics, space after accuracy, Align: DONE
 5. When Entropy is selected, Minimum option should be disabled; For probability, Max option should be disabled: DONE
-6. change notations on slides: TODO
+
 
 About TOD Code:
 1. main_TOD.py: train_epoch() function, why do we need res_loss? Its always zero, right? 
@@ -120,3 +121,10 @@ About TOD Code:
  --> make it work for toy example
  --> attach toy example to add restrictions
  --> screenshots
+
+
+ 02/14
+1. A(orig [offset/entropy]) + B(variance by transformation) + C(COD)
+2. Use almost annotated data to simulate the experiment and get the best values for lambdas
+3. Do this for loss function beta-1 and beta-2 as well
+4. Try features before sigmoid as well for COD
