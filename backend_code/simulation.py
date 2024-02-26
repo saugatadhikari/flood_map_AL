@@ -94,7 +94,7 @@ for lambda_1 in LAMBDA_1_UNCERTAINTY_GRID:
     transformation_agg = "avg"
     superpixel_agg = "avg"
     student_id = "saugat"
-    TEST_REGION = 0
+    TEST_REGION = 1
 
     if os.path.exists(f"./users/{student_id}/output/R{TEST_REGION}_labels.png"):
         os.remove(f"./users/{student_id}/output/R{TEST_REGION}_labels.png")
