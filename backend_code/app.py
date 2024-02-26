@@ -202,6 +202,8 @@ def retrain():
     transformation_agg = request.args.get('transformation_agg', 'avg').strip()
     superpixel_agg = request.args.get('superpixel_agg', 'avg').strip()
 
+    print(entropy, probability, cod)
+
     # read cycle from txt file
     try:
         with open(f"./users/{student_id}/al_cycles/R{TEST_REGION}.txt", 'r') as file:

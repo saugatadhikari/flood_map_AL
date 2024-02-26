@@ -108,8 +108,8 @@ class EvaNet(nn.Module):
             x = self.up7(x, x1, h2, h)
             # print("Up 7: ", x.shape, h.shape)
 
-        x = self.outc(x, h)
+        x_b = self.outc(x, h)
         # print("Out Conv: ", x.shape)
-        x = self.out_nonlin(x)
+        x_a = self.out_nonlin(x_b)
         # print("Out Nonlin: ", x.shape)
-        return x
+        return x_b, x_a

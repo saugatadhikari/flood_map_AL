@@ -70,6 +70,7 @@ def run_pred_al_probability(model, data_loader, TRANSFORMATION_SCORE):
     model.eval()
     pred_patches_dict = dict()
     final_pred_patches_dict = dict()
+    variance_patches_dict = dict()
     
     for data_dict in tqdm(data_loader):
         
@@ -83,7 +84,7 @@ def run_pred_al_probability(model, data_loader, TRANSFORMATION_SCORE):
         filename = data_dict['filename']
 
         ## Get model prediction
-        pred = model(rgb_data, norm_elev_data)
+        logits_, pred = model(rgb_data, norm_elev_data)
 
         rgb_data_flipx = torch.flip(rgb_data, dims=(-1,))
         rgb_data_flipy = torchvision.transforms.functional.vflip(rgb_data)
@@ -97,11 +98,11 @@ def run_pred_al_probability(model, data_loader, TRANSFORMATION_SCORE):
         norm_elev_data_rot180 = torchvision.transforms.functional.rotate(norm_elev_data, angle=180)
         norm_elev_data_rot270 = torchvision.transforms.functional.rotate(norm_elev_data, angle=270)
 
-        pred_flipx = model(rgb_data_flipx, norm_elev_data_flipx) # get pred for horizontal flip
-        pred_flipy = model(rgb_data_flipy, norm_elev_data_flipy) # get pred for horizontal flip
-        pred_rot90 = model(rgb_data_rot90, norm_elev_data_rot90) # get pred for horizontal flip
-        pred_rot180 = model(rgb_data_rot180, norm_elev_data_rot180) # get pred for horizontal flip
-        pred_rot270 = model(rgb_data_rot270, norm_elev_data_rot270) # get pred for horizontal flip
+        logits_flipx, pred_flipx = model(rgb_data_flipx, norm_elev_data_flipx) # get pred for horizontal flip
+        logits_flipy, pred_flipy = model(rgb_data_flipy, norm_elev_data_flipy) # get pred for horizontal flip
+        logits_rot90, pred_rot90 = model(rgb_data_rot90, norm_elev_data_rot90) # get pred for horizontal flip
+        logits_rot180, pred_rot180 = model(rgb_data_rot180, norm_elev_data_rot180) # get pred for horizontal flip
+        logits_ro7270, pred_rot270 = model(rgb_data_rot270, norm_elev_data_rot270) # get pred for horizontal flip
         
         pred_flipx_inv = torch.flip(pred_flipx, dims=(-1,)) # flip back to original orientation
         pred_flipy_inv = torchvision.transforms.functional.vflip(pred_flipy) # flip back to original orientation
@@ -120,32 +121,116 @@ def run_pred_al_probability(model, data_loader, TRANSFORMATION_SCORE):
         pred_rot270_abs = torch.abs(pred_rot270_inv - half_array)
 
         # avg_prob = torch.sum(torch.stack([pred, pred_flipx_inv, pred_flipy_inv, pred_rot90_inv, pred_rot180_inv, pred_rot270_inv]), dim=0) / 6
+        # if TRANSFORMATION_SCORE == "AVG":
+        #     final_prob = torch.sum(torch.stack([pred, pred_flipx_abs, pred_flipy_abs, pred_rot90_abs, pred_rot180_abs, pred_rot270_abs]), dim=0) / 6
+        # elif TRANSFORMATION_SCORE == "MIN":
+        #     final_prob = torch.min(torch.stack([pred, pred_flipx_abs, pred_flipy_abs, pred_rot90_abs, pred_rot180_abs, pred_rot270_abs]), dim=0).values
+        # elif TRANSFORMATION_SCORE == "MAX":
+        #     final_prob = torch.max(torch.stack([pred, pred_flipx_abs, pred_flipy_abs, pred_rot90_abs, pred_rot180_abs, pred_rot270_abs]), dim=0).values
+
+        # Using lambda for variance
         if TRANSFORMATION_SCORE == "AVG":
-            final_prob = torch.sum(torch.stack([pred, pred_flipx_abs, pred_flipy_abs, pred_rot90_abs, pred_rot180_abs, pred_rot270_abs]), dim=0) / 6
+            prob_variance = torch.sum(torch.stack([pred_flipx_abs, pred_flipy_abs, pred_rot90_abs, pred_rot180_abs, pred_rot270_abs]), dim=0) / 5
         elif TRANSFORMATION_SCORE == "MIN":
-            final_prob = torch.min(torch.stack([pred, pred_flipx_abs, pred_flipy_abs, pred_rot90_abs, pred_rot180_abs, pred_rot270_abs]), dim=0).values
+            prob_variance = torch.min(torch.stack([pred_flipx_abs, pred_flipy_abs, pred_rot90_abs, pred_rot180_abs, pred_rot270_abs]), dim=0).values
         elif TRANSFORMATION_SCORE == "MAX":
-            final_prob = torch.max(torch.stack([pred, pred_flipx_abs, pred_flipy_abs, pred_rot90_abs, pred_rot180_abs, pred_rot270_abs]), dim=0).values
-       
-        final_prob_np = final_prob.detach().cpu().numpy()
+            prob_variance = torch.max(torch.stack([pred_flipx_abs, pred_flipy_abs, pred_rot90_abs, pred_rot180_abs, pred_rot270_abs]), dim=0).values
+            
+        # final_prob = pred_abs + config.LAMBDA_1_UNCERTAINTY * prob_variance
+        # print(final_prob.shape)
+        # final_prob_np = final_prob.detach().cpu().numpy()
 
-        # print("avg_prob_shape: ", avg_prob.shape)
-        # print("avg_prob_np_shape: ", avg_prob_np.shape)
-        # print("loss_array_sc: ", loss_array_sc.shape)
+        # pred_np = pred.detach().cpu().numpy()
+        
+        # ## Save Image and RGB patch
+        # for idx in range(rgb_data.shape[0]):
+        #     final_pred_patches_dict[filename[idx]] = final_prob_np[idx, :, :, :]
+        #     # min_pred_patches_dict[filename[idx]] = min_prob_np[idx, :, :, :]
+        #     pred_patches_dict[filename[idx]] = pred_np[idx, :, :, :]
+            
+        pred_np = pred.detach().cpu().numpy()
+        variance_np = prob_variance.detach().cpu().numpy()
 
-        # min_prob = torch.min(torch.stack([pred, pred_flipx_abs, pred_flipy_abs, pred_rot90_abs, pred_rot180_abs, pred_rot270_abs]), dim=0)
-        # min_prob_np = min_prob.values
+        for idx in range(rgb_data.shape[0]):
+            pred_patches_dict[filename[idx]] = pred_np[idx, :, :, :]
+            variance_patches_dict[filename[idx]] = variance_np[idx, :, :, :]
+        
+    return pred_patches_dict, variance_patches_dict
+
+def run_pred_al_entropy(model, data_loader, TRANSFORMATION_SCORE):
+    
+    ## Model gets set to evaluation mode
+    model.eval()
+    pred_patches_dict = dict()
+    entropy_patches_dict = dict()
+    variance_patches_dict = dict()
+    
+    
+    for data_dict in tqdm(data_loader):
+        
+        ## RGB data
+        rgb_data = data_dict['rgb_data'].float().to(DEVICE)
+
+        ## Elevation data
+        norm_elev_data = data_dict['norm_elev_data'].float().to(DEVICE)
+
+        ## Get filename
+        filename = data_dict['filename']
+
+        ## Get model prediction
+        logits_, pred = model(rgb_data, norm_elev_data)
+
+        rgb_data_flipx = torch.flip(rgb_data, dims=(-1,))
+        rgb_data_flipy = torchvision.transforms.functional.vflip(rgb_data)
+        rgb_data_rot90 = torchvision.transforms.functional.rotate(rgb_data, angle=90)
+        rgb_data_rot180 = torchvision.transforms.functional.rotate(rgb_data, angle=180)
+        rgb_data_rot270 = torchvision.transforms.functional.rotate(rgb_data, angle=270)
+        
+        norm_elev_data_flipx = torch.flip(norm_elev_data, dims=(-1,))
+        norm_elev_data_flipy = torchvision.transforms.functional.vflip(norm_elev_data)
+        norm_elev_data_rot90 = torchvision.transforms.functional.rotate(norm_elev_data, angle=90)
+        norm_elev_data_rot180 = torchvision.transforms.functional.rotate(norm_elev_data, angle=180)
+        norm_elev_data_rot270 = torchvision.transforms.functional.rotate(norm_elev_data, angle=270)
+
+        logits_flipx, pred_flipx = model(rgb_data_flipx, norm_elev_data_flipx) # get pred for horizontal flip
+        logits_flipy, pred_flipy = model(rgb_data_flipy, norm_elev_data_flipy) # get pred for horizontal flip
+        logits_rot90, pred_rot90 = model(rgb_data_rot90, norm_elev_data_rot90) # get pred for horizontal flip
+        logits_rot180, pred_rot180 = model(rgb_data_rot180, norm_elev_data_rot180) # get pred for horizontal flip
+        logits_ro7270, pred_rot270 = model(rgb_data_rot270, norm_elev_data_rot270) # get pred for horizontal flip
+        
+        pred_flipx_inv = torch.flip(pred_flipx, dims=(-1,)) # flip back to original orientation
+        pred_flipy_inv = torchvision.transforms.functional.vflip(pred_flipy) # flip back to original orientation
+        pred_rot90_inv = torchvision.transforms.functional.rotate(pred_rot90, angle=270)
+        pred_rot180_inv = torchvision.transforms.functional.rotate(pred_rot180, angle=180)
+        pred_rot270_inv = torchvision.transforms.functional.rotate(pred_rot270, angle=90)
+
+        # all_logits = [pred, pred_flipx_inv, pred_flipy_inv, pred_rot90_inv, pred_rot180_inv, pred_rot270_inv]
+        transformed_logits = [pred_flipx_inv, pred_flipy_inv, pred_rot90_inv, pred_rot180_inv, pred_rot270_inv]
+
+        # entropy = compute_entropy(all_logits, TRANSFORMATION_SCORE)
+        entropy_variance = compute_entropy(transformed_logits, TRANSFORMATION_SCORE)
+
+        # pred_clone = torch.clone(pred)
+
+        # log_out =-1* torch.log(pred_clone)
+        # log_out[log_out != log_out] = 0
+        # log_out[log_out == float("Inf")] = 0
+        # log_out[log_out == -float("Inf")] = 0
+        # log_out[log_out == float("-Inf")] = 0
+
+        # entropy_orig = log_out * pred_clone
+
+        # final_entropy = entropy_orig + config.LAMBDA_1_UNCERTAINTY * entropy_variance
+        # print("entropy shape: ", final_entropy.shape)
 
         pred_np = pred.detach().cpu().numpy()
-        
-        ## Save Image and RGB patch
+        entropy_variance_np = entropy_variance.detach().cpu().numpy()
+ 
         for idx in range(rgb_data.shape[0]):
-            final_pred_patches_dict[filename[idx]] = final_prob_np[idx, :, :, :]
-            # min_pred_patches_dict[filename[idx]] = min_prob_np[idx, :, :, :]
             pred_patches_dict[filename[idx]] = pred_np[idx, :, :, :]
-        
-    # return avg_pred_patches_dict, min_pred_patches_dict, pred_patches_dict
-    return pred_patches_dict, final_pred_patches_dict
+            variance_patches_dict[filename[idx]] = entropy_variance_np[idx, :, :, :]
+
+    return pred_patches_dict, variance_patches_dict
 
 def run_pred_al_cod(models, data_loader):
     
@@ -165,10 +250,16 @@ def run_pred_al_cod(models, data_loader):
         filename = data_dict['filename']
 
         ## Get model prediction
-        pred_backbone = models['backbone'](rgb_data, norm_elev_data)
-        pred_cod = models['cod'](rgb_data, norm_elev_data)
+        logits_backbone, pred_backbone = models['backbone'](rgb_data, norm_elev_data)
+        logits_cod, pred_cod = models['cod'](rgb_data, norm_elev_data)
 
-        cod_loss = (pred_backbone - pred_cod).pow(2)
+        # print("logits shape: ", logits_backbone.shape)
+
+        if config.USE_LOGITS:
+            cod_loss = (logits_backbone - logits_cod).pow(2)
+        else:
+            cod_loss = (pred_backbone - pred_cod).pow(2)
+
         final_prob_np = cod_loss.detach().cpu().numpy()
 
         pred_np = pred_backbone.detach().cpu().numpy()
@@ -179,215 +270,6 @@ def run_pred_al_cod(models, data_loader):
             pred_patches_dict[filename[idx]] = pred_np[idx, :, :, :]
 
     return pred_patches_dict, final_pred_patches_dict
-
-def run_pred_al_min(model, data_loader):
-    
-    ## Model gets set to evaluation mode
-    model.eval()
-    pred_patches_dict = dict()
-    avg_pred_patches_dict = dict()
-    min_pred_patches_dict = dict()
-    
-    for data_dict in tqdm(data_loader):
-        
-        ## RGB data
-        rgb_data = data_dict['rgb_data'].float().to(DEVICE)
-
-        ## Elevation data
-        norm_elev_data = data_dict['norm_elev_data'].float().to(DEVICE)
-
-        ## Get filename
-        filename = data_dict['filename']
-
-        ## Get model prediction
-        pred = model(rgb_data, norm_elev_data)
-
-        rgb_data_flipx = torch.flip(rgb_data, dims=(-1,))
-        rgb_data_flipy = torchvision.transforms.functional.vflip(rgb_data)
-        rgb_data_rot90 = torchvision.transforms.functional.rotate(rgb_data, angle=90)
-        rgb_data_rot180 = torchvision.transforms.functional.rotate(rgb_data, angle=180)
-        rgb_data_rot270 = torchvision.transforms.functional.rotate(rgb_data, angle=270)
-        
-        norm_elev_data_flipx = torch.flip(norm_elev_data, dims=(-1,))
-        norm_elev_data_flipy = torchvision.transforms.functional.vflip(norm_elev_data)
-        norm_elev_data_rot90 = torchvision.transforms.functional.rotate(norm_elev_data, angle=90)
-        norm_elev_data_rot180 = torchvision.transforms.functional.rotate(norm_elev_data, angle=180)
-        norm_elev_data_rot270 = torchvision.transforms.functional.rotate(norm_elev_data, angle=270)
-
-        pred_flipx = model(rgb_data_flipx, norm_elev_data_flipx) # get pred for horizontal flip
-        pred_flipy = model(rgb_data_flipy, norm_elev_data_flipy) # get pred for horizontal flip
-        pred_rot90 = model(rgb_data_rot90, norm_elev_data_rot90) # get pred for horizontal flip
-        pred_rot180 = model(rgb_data_rot180, norm_elev_data_rot180) # get pred for horizontal flip
-        pred_rot270 = model(rgb_data_rot270, norm_elev_data_rot270) # get pred for horizontal flip
-        
-        pred_flipx_inv = torch.flip(pred_flipx, dims=(-1,)) # flip back to original orientation
-        pred_flipy_inv = torchvision.transforms.functional.vflip(pred_flipy) # flip back to original orientation
-        pred_rot90_inv = torchvision.transforms.functional.rotate(pred_rot90, angle=270)
-        pred_rot180_inv = torchvision.transforms.functional.rotate(pred_rot180, angle=180)
-        pred_rot270_inv = torchvision.transforms.functional.rotate(pred_rot270, angle=90)
-
-        s1,s2,s3,s4 = pred.shape
-        half_array = torch.tensor(np.full((s1, s2, s3, s4), 0.5)).to(DEVICE)
-        
-        pred_abs = torch.abs(pred - half_array)
-        pred_flipx_abs = torch.abs(pred_flipx_inv - half_array)
-        pred_flipy_abs = torch.abs(pred_flipy_inv - half_array)
-        pred_rot90_abs = torch.abs(pred_rot90_inv - half_array)
-        pred_rot180_abs = torch.abs(pred_rot180_inv - half_array)
-        pred_rot270_abs = torch.abs(pred_rot270_inv - half_array)
-
-        min_prob = torch.min(torch.stack([pred, pred_flipx_abs, pred_flipy_abs, pred_rot90_abs, pred_rot180_abs, pred_rot270_abs]), dim=0)
-        min_prob_np = min_prob.values
-        min_prob_np = min_prob_np.detach().cpu().numpy()
-
-        pred_np = pred.detach().cpu().numpy()
-        
-        ## Save Image and RGB patch
-        for idx in range(rgb_data.shape[0]):
-            min_pred_patches_dict[filename[idx]] = min_prob_np[idx, :, :, :]
-            pred_patches_dict[filename[idx]] = pred_np[idx, :, :, :]
-        
-    return pred_patches_dict, min_pred_patches_dict
-
-def run_pred_al_sc(model, data_loader):
-    
-    ## Model gets set to evaluation mode
-    model.eval()
-    pred_patches_dict = dict()
-    avg_pred_patches_dict = dict()
-    min_pred_patches_dict = dict()
-    loss_patches_dict = dict()
-    
-    for data_dict in tqdm(data_loader):
-        
-        ## RGB data
-        rgb_data = data_dict['rgb_data'].float().to(DEVICE)
-
-        ## Elevation data
-        norm_elev_data = data_dict['norm_elev_data'].float().to(DEVICE)
-
-        ## Get filename
-        filename = data_dict['filename']
-
-        ## Get model prediction
-        pred = model(rgb_data, norm_elev_data)
-
-        rgb_data_flipx = torch.flip(rgb_data, dims=(-1,))
-        rgb_data_flipy = torchvision.transforms.functional.vflip(rgb_data)
-        rgb_data_rot90 = torchvision.transforms.functional.rotate(rgb_data, angle=90)
-        rgb_data_rot180 = torchvision.transforms.functional.rotate(rgb_data, angle=180)
-        rgb_data_rot270 = torchvision.transforms.functional.rotate(rgb_data, angle=270)
-        
-        norm_elev_data_flipx = torch.flip(norm_elev_data, dims=(-1,))
-        norm_elev_data_flipy = torchvision.transforms.functional.vflip(norm_elev_data)
-        norm_elev_data_rot90 = torchvision.transforms.functional.rotate(norm_elev_data, angle=90)
-        norm_elev_data_rot180 = torchvision.transforms.functional.rotate(norm_elev_data, angle=180)
-        norm_elev_data_rot270 = torchvision.transforms.functional.rotate(norm_elev_data, angle=270)
-
-        pred_flipx = model(rgb_data_flipx, norm_elev_data_flipx) # get pred for horizontal flip
-        pred_flipy = model(rgb_data_flipy, norm_elev_data_flipy) # get pred for horizontal flip
-        pred_rot90 = model(rgb_data_rot90, norm_elev_data_rot90) # get pred for horizontal flip
-        pred_rot180 = model(rgb_data_rot180, norm_elev_data_rot180) # get pred for horizontal flip
-        pred_rot270 = model(rgb_data_rot270, norm_elev_data_rot270) # get pred for horizontal flip
-        
-        pred_flipx_inv = torch.flip(pred_flipx, dims=(-1,)) # flip back to original orientation
-        pred_flipy_inv = torchvision.transforms.functional.vflip(pred_flipy) # flip back to original orientation
-        pred_rot90_inv = torchvision.transforms.functional.rotate(pred_rot90, angle=270)
-        pred_rot180_inv = torchvision.transforms.functional.rotate(pred_rot180, angle=180)
-        pred_rot270_inv = torchvision.transforms.functional.rotate(pred_rot270, angle=90)
-
-        s1,s2,s3,s4 = pred.shape
-        half_array = torch.tensor(np.full((s1, s2, s3, s4), 0.5)).to(DEVICE)
-        
-        pred_abs = torch.abs(pred - half_array)
-        pred_flipx_abs = torch.abs(pred_flipx_inv - half_array)
-        pred_flipy_abs = torch.abs(pred_flipy_inv - half_array)
-        pred_rot90_abs = torch.abs(pred_rot90_inv - half_array)
-        pred_rot180_abs = torch.abs(pred_rot180_inv - half_array)
-        pred_rot270_abs = torch.abs(pred_rot270_inv - half_array)
-
-        all_logits = [pred, pred_flipx_inv, pred_flipy_inv, pred_rot90_inv, pred_rot180_inv, pred_rot270_inv]
-        # all_logits = [pred, pred_flipx_inv]
-
-        # labels = data_dict['labels'].float().to(DEVICE)
-        # labels.requires_grad = False  
-
-        loss_array_sc = loss_self_consistency_acquisition(all_logits)
-
-        # # avg_prob = torch.sum(torch.stack([pred, pred_flipx_inv, pred_flipy_inv, pred_rot90_inv, pred_rot180_inv, pred_rot270_inv]), dim=0) / 6
-        # avg_prob = torch.sum(torch.stack([pred_abs, pred_flipx_abs, pred_flipy_abs, pred_rot90_abs, pred_rot180_abs, pred_rot270_abs]), dim=0) / 6
-        # avg_prob_np = avg_prob.detach().cpu().numpy()
-
-        pred_np = pred.detach().cpu().numpy()
-        loss_array_sc_np = loss_array_sc.detach().cpu().numpy()
-        
- 
-        for idx in range(rgb_data.shape[0]):
-            # avg_pred_patches_dict[filename[idx]] = avg_prob_np[idx, :, :, :]
-            # min_pred_patches_dict[filename[idx]] = min_prob_np[idx, :, :, :]
-            pred_patches_dict[filename[idx]] = pred_np[idx, :, :, :]
-            loss_patches_dict[filename[idx]] = loss_array_sc_np[idx, :, :, :]
-        
-    return pred_patches_dict, loss_patches_dict
-
-def run_pred_al_entropy(model, data_loader, TRANSFORMATION_SCORE):
-    
-    ## Model gets set to evaluation mode
-    model.eval()
-    pred_patches_dict = dict()
-    entropy_patches_dict = dict()
-    
-    for data_dict in tqdm(data_loader):
-        
-        ## RGB data
-        rgb_data = data_dict['rgb_data'].float().to(DEVICE)
-
-        ## Elevation data
-        norm_elev_data = data_dict['norm_elev_data'].float().to(DEVICE)
-
-        ## Get filename
-        filename = data_dict['filename']
-
-        ## Get model prediction
-        pred = model(rgb_data, norm_elev_data)
-
-        rgb_data_flipx = torch.flip(rgb_data, dims=(-1,))
-        rgb_data_flipy = torchvision.transforms.functional.vflip(rgb_data)
-        rgb_data_rot90 = torchvision.transforms.functional.rotate(rgb_data, angle=90)
-        rgb_data_rot180 = torchvision.transforms.functional.rotate(rgb_data, angle=180)
-        rgb_data_rot270 = torchvision.transforms.functional.rotate(rgb_data, angle=270)
-        
-        norm_elev_data_flipx = torch.flip(norm_elev_data, dims=(-1,))
-        norm_elev_data_flipy = torchvision.transforms.functional.vflip(norm_elev_data)
-        norm_elev_data_rot90 = torchvision.transforms.functional.rotate(norm_elev_data, angle=90)
-        norm_elev_data_rot180 = torchvision.transforms.functional.rotate(norm_elev_data, angle=180)
-        norm_elev_data_rot270 = torchvision.transforms.functional.rotate(norm_elev_data, angle=270)
-
-        pred_flipx = model(rgb_data_flipx, norm_elev_data_flipx) # get pred for horizontal flip
-        pred_flipy = model(rgb_data_flipy, norm_elev_data_flipy) # get pred for horizontal flip
-        pred_rot90 = model(rgb_data_rot90, norm_elev_data_rot90) # get pred for horizontal flip
-        pred_rot180 = model(rgb_data_rot180, norm_elev_data_rot180) # get pred for horizontal flip
-        pred_rot270 = model(rgb_data_rot270, norm_elev_data_rot270) # get pred for horizontal flip
-        
-        pred_flipx_inv = torch.flip(pred_flipx, dims=(-1,)) # flip back to original orientation
-        pred_flipy_inv = torchvision.transforms.functional.vflip(pred_flipy) # flip back to original orientation
-        pred_rot90_inv = torchvision.transforms.functional.rotate(pred_rot90, angle=270)
-        pred_rot180_inv = torchvision.transforms.functional.rotate(pred_rot180, angle=180)
-        pred_rot270_inv = torchvision.transforms.functional.rotate(pred_rot270, angle=90)
-
-        # all_logits = [pred, pred_flipx_inv, pred_flipy_inv, pred_rot90_inv, pred_rot180_inv, pred_rot270_inv]
-        all_logits = [pred, pred_flipx_inv, pred_flipy_inv, pred_rot90_inv, pred_rot180_inv, pred_rot270_inv]
-
-        entropy = compute_entropy(all_logits, TRANSFORMATION_SCORE)
-
-        pred_np = pred.detach().cpu().numpy()
-        entropy_np = entropy.detach().cpu().numpy()
- 
-        for idx in range(rgb_data.shape[0]):
-            entropy_patches_dict[filename[idx]] = entropy_np[idx, :, :, :]
-            pred_patches_dict[filename[idx]] = pred_np[idx, :, :, :]
-
-    return pred_patches_dict, entropy_patches_dict
 
 
 def compute_entropy(outputs, TRANSFORMATION_SCORE):
@@ -453,7 +335,7 @@ def run_pred_final(model, data_loader):
         filename = data_dict['filename']
 
         ## Get model prediction
-        pred = model(rgb_data, norm_elev_data)
+        logits_, pred = model(rgb_data, norm_elev_data)
 
         # ## Remove pred and GT from GPU and convert to np array
         pred_labels_np = pred.detach().cpu().numpy()
@@ -483,9 +365,9 @@ def run_pred_final_avg(model, data_loader):
         filename = data_dict['filename']
 
         ## Get model prediction
-        pred = model(rgb_data, norm_elev_data)
+        logits_, pred = model(rgb_data, norm_elev_data)
 
-        # TODO: flip and rotate
+        # flip and rotate
         rgb_data_flipx = torch.flip(rgb_data, dims=(-1,))
         rgb_data_flipy = torchvision.transforms.functional.vflip(rgb_data)
         rgb_data_rot90 = torchvision.transforms.functional.rotate(rgb_data, angle=90)
@@ -498,11 +380,11 @@ def run_pred_final_avg(model, data_loader):
         norm_elev_data_rot180 = torchvision.transforms.functional.rotate(norm_elev_data, angle=180)
         norm_elev_data_rot270 = torchvision.transforms.functional.rotate(norm_elev_data, angle=270)
 
-        pred_flipx = model(rgb_data_flipx, norm_elev_data_flipx) # get pred for horizontal flip
-        pred_flipy = model(rgb_data_flipy, norm_elev_data_flipy) # get pred for horizontal flip
-        pred_rot90 = model(rgb_data_rot90, norm_elev_data_rot90) # get pred for horizontal flip
-        pred_rot180 = model(rgb_data_rot180, norm_elev_data_rot180) # get pred for horizontal flip
-        pred_rot270 = model(rgb_data_rot270, norm_elev_data_rot270) # get pred for horizontal flip
+        logits_flipx, pred_flipx = model(rgb_data_flipx, norm_elev_data_flipx) # get pred for horizontal flip
+        logits_flipy, pred_flipy = model(rgb_data_flipy, norm_elev_data_flipy) # get pred for horizontal flip
+        logits_rot90, pred_rot90 = model(rgb_data_rot90, norm_elev_data_rot90) # get pred for horizontal flip
+        logits_rot180, pred_rot180 = model(rgb_data_rot180, norm_elev_data_rot180) # get pred for horizontal flip
+        logits_ro7270, pred_rot270 = model(rgb_data_rot270, norm_elev_data_rot270) # get pred for horizontal flip
         
         pred_flipx_inv = torch.flip(pred_flipx, dims=(-1,)) # flip back to original orientation
         pred_flipy_inv = torchvision.transforms.functional.vflip(pred_flipy) # flip back to original orientation
@@ -898,9 +780,19 @@ def recommend_superpixels(TEST_REGION, entropy, probability, cod, transformation
     if not os.path.exists(f"./users/{student_id}/resume_epoch"):
         os.mkdir(f"./users/{student_id}/resume_epoch")
 
-    config.ENTROPY = entropy
-    config.PROBABILITY = probability
+    print("ent", "prob", "cod")
+    print(entropy, probability, cod)
+
+    # fallback if user choose both to be 0
+    if (entropy != 0 or probability != 0):
+        print("HERE")
+        config.ENTROPY = entropy
+        config.PROBABILITY = probability
+
     config.COD = cod
+
+    print("ent", "prob", "cod")
+    print(config.ENTROPY, config.PROBABILITY, config.COD)
 
     if transformation_agg.strip().lower() == 'avg':
         config.TRANSFORMATION_SCORE = 'AVG'
@@ -919,9 +811,7 @@ def recommend_superpixels(TEST_REGION, entropy, probability, cod, transformation
     print(config.ENTROPY, config.PROBABILITY)
     print(config.TRANSFORMATION_SCORE, config.SUPERPIXEL_SCORE)
 
-    # fallback if user choose both to be 0
-    if (entropy == 0 and probability == 0):
-        config.PROBABILITY = 1
+    
 
     # return # TODO: remove after test
 
@@ -1038,69 +928,110 @@ def recommend_superpixels(TEST_REGION, entropy, probability, cod, transformation
     test_loader = DataLoader(test_dataset, batch_size = config.BATCH_SIZE)
 
     # TODO: initialize pred_unpadded and entropy unpadded to zeros
-    pred_unpadded = torch.tensor(np.zeros((height, width)))
-    entropy_unpadded = torch.tensor(np.zeros((height, width)))
+    pred_orig = np.zeros((height, width))
+    entropy_unpadded = np.zeros((height, width))
 
-    if config.ENTROPY:
-        pred_patches_dict, entropy_patches_dict = run_pred_al_entropy(models['backbone'], test_loader, config.TRANSFORMATION_SCORE)
-        _, entropy_stitched = stitch_patches(entropy_patches_dict, TEST_REGION)
-        entropy_unpadded = center_crop(entropy_stitched, height, width, image = False)
-        entropy_unpadded = np.sum(entropy_unpadded, axis=-1)/2
-        # entropy_unpadded = entropy_unpadded[:,:,0]
+    if config.PROBABILITY: # get A1 and B
+        pred_patches_dict, variance_patches_dict = run_pred_al_probability(models['backbone'], test_loader, config.TRANSFORMATION_SCORE)
 
-        # superpixel_scores = get_superpixel_scores(superpixels_group, entropy_unpadded, config.SUPERPIXEL_SCORE)
-    
-        # # sort by prob score in descending order; highest entropy first
-        # superpixel_scores = dict(sorted(superpixel_scores.items(), key=lambda item: item[1]), reverse=True)
-        # selected_superpixels, max_items = select_superpixels(total_superpixels, superpixel_scores, forest_superpixels)
-    elif config.PROBABILITY:
-        pred_patches_dict, final_pred_patches_dict = run_pred_al_probability(models['backbone'], test_loader, config.TRANSFORMATION_SCORE)
-        rgb_stitched, pred_stitched = stitch_patches(final_pred_patches_dict, TEST_REGION)
-        pred_unpadded = center_crop(pred_stitched, height, width, image = False)
-        pred_unpadded = pred_unpadded[:,:,0]
+        # stitch pred patches
+        _, pred_stitched = stitch_patches(pred_patches_dict, TEST_REGION)
+        pred_orig = center_crop(pred_stitched, height, width, image = False)
+        print(pred_orig.shape)
 
-        print(np.min(pred_unpadded), np.max(pred_unpadded))
-        print("pred_shape: ", pred_unpadded.shape)
+        # get the offset of original prediction --> A1
+        s1,s2,s3 = pred_orig.shape
+        half_array = np.full((s1, s2, s3), 0.5)
+        pred_orig_offset = np.abs(pred_orig - half_array)
+        pred_orig_offset = pred_orig_offset[:,:,0] # only flood class
+        # pred_orig_offset = np.sum(pred_orig_offset, axis=-1)/2
+
+        # stitch variance patches --> B
+        _, variance_stitched = stitch_patches(variance_patches_dict, TEST_REGION)
+        variance_unpadded = center_crop(variance_stitched, height, width, image = False)
+        variance_unpadded = variance_unpadded[:,:,0]
+        # variance_unpadded = np.sum(variance_unpadded, axis=-1)/2
+
+        print("offset: ", np.min(pred_orig_offset), np.max(pred_orig_offset))
+        print("variance: ", np.min(variance_unpadded), np.max(variance_unpadded))
+        print("pred_shape: ", pred_orig_offset.shape)
+        print("variance_shape: ", variance_unpadded.shape)
+
+    elif config.ENTROPY: # get A2 and B
+        pred_patches_dict, variance_patches_dict = run_pred_al_entropy(models['backbone'], test_loader, config.TRANSFORMATION_SCORE)
+
+        # stitch pred patches
+        _, pred_stitched = stitch_patches(pred_patches_dict, TEST_REGION)
+        pred_orig = center_crop(pred_stitched, height, width, image = False)
+        print(pred_orig.shape)
+
+        # get the entropy of original prediction --> A2
+        pred_orig_clone = np.copy(pred_orig)
+        log_out =-1* np.log(pred_orig_clone)
+        log_out[log_out != log_out] = 0
+        log_out[log_out == float("Inf")] = 0
+        log_out[log_out == -float("Inf")] = 0
+        log_out[log_out == float("-Inf")] = 0
+
+        entropy_orig = log_out * pred_orig_clone
+        entropy_orig = entropy_orig[:,:,0]
+
+        # stitch variance patches --> B
+        _, variance_stitched = stitch_patches(variance_patches_dict, TEST_REGION)
+        variance_unpadded = center_crop(variance_stitched, height, width, image = False)
+        variance_unpadded = variance_unpadded[:,:,0]
+        # variance_unpadded = np.sum(variance_unpadded, axis=-1)/2
+
+        print("entropy: ", np.min(entropy_orig), np.max(entropy_orig))
+        print("variance: ", np.min(variance_unpadded), np.max(variance_unpadded))
+        print("pred_shape: ", entropy_orig.shape)
+        print("variance_shape: ", variance_unpadded.shape)
 
 
-        # superpixel_scores = get_superpixel_scores(superpixels_group, pred_unpadded, config.SUPERPIXEL_SCORE)
-    
-        # # sort by prob score in ascending order; most uncertain superpixel first (whichever is close to 0.5)
-        # superpixel_scores = dict(sorted(superpixel_scores.items(), key=lambda item: item[1]))
-        # selected_superpixels, max_items = select_superpixels(total_superpixels, superpixel_scores, forest_superpixels)
+    print("COD: ", config.COD)
+    if config.COD: # A(original) + B(variance) + C(cod)
+        pred_patches_dict, cod_loss_patches_dict = run_pred_al_cod(models, test_loader)
 
+        # stitch pred patches
+        _, pred_stitched = stitch_patches(pred_patches_dict, TEST_REGION)
+        pred_orig = center_crop(pred_stitched, height, width, image = False)
+        print(pred_orig.shape)
 
-    if config.COD:
-        pred_patches_dict_cod, final_pred_patches_dict_cod = run_pred_al_cod(models, test_loader)
-        _, pred_stitched_cod = stitch_patches(final_pred_patches_dict_cod, TEST_REGION)
-        pred_unpadded_cod = center_crop(pred_stitched_cod, height, width, image = False)
-        pred_unpadded_cod = np.sum(pred_unpadded_cod, axis=-1)/2
-        # pred_unpadded_cod = pred_unpadded_cod[:,:,0]
+        # get COD --> C
+        _, cod_loss = stitch_patches(cod_loss_patches_dict, TEST_REGION)
+        cod_loss_unpadded = center_crop(cod_loss, height, width, image = False)
+        cod_loss_unpadded = cod_loss_unpadded[:,:,0]
+        # cod_loss_unpadded = np.sum(cod_loss_unpadded, axis=-1)/2
 
-        print(np.min(pred_unpadded_cod), np.max(pred_unpadded_cod))
-        print("pred_cod_shape: ", pred_unpadded_cod.shape)
+        print("COD loss: ", np.min(cod_loss_unpadded), np.max(cod_loss_unpadded))
+        print("cod_loss_shape: ", cod_loss_unpadded.shape)
 
         if config.PROBABILITY:
             # compute the weighted sum to 2 uncertainty scores (probability offset and COD)
-            pred_unpadded = config.LAMBDA_1_UNCERTAINTY * pred_unpadded + config.LAMBDA_2_UNCERTAINTY * (1 - pred_unpadded_cod) # for PROB: 0 means uncertain; for COD: 1 means uncertain 
+            pred_offset_agg = pred_orig_offset + config.LAMBDA_1_UNCERTAINTY * variance_unpadded + config.LAMBDA_2_UNCERTAINTY * (1 - cod_loss_unpadded) # for PROB: 0 means uncertain; for COD: 1 means uncertain # A+B+C
 
-            print(np.min(pred_unpadded), np.max(pred_unpadded))
+            print("A1 + B + C: ", np.min(pred_offset_agg), np.max(pred_offset_agg))
         elif config.ENTROPY:
             # compute the weighted sum to 2 uncertainty scores (entropy and COD); higher entropy means recommend so we add (1 - pred_unpadded_cod)
-            entropy_unpadded = config.LAMBDA_1_UNCERTAINTY * entropy_unpadded + config.LAMBDA_2_UNCERTAINTY * pred_unpadded_cod # for ENT: 1 means uncertain; for COD: 1 means uncertain
+            entropy_agg = entropy_orig + config.LAMBDA_1_UNCERTAINTY * variance_unpadded + config.LAMBDA_2_UNCERTAINTY * cod_loss_unpadded # for ENT: 1 means uncertain; for COD: 1 means uncertain # A+B+C
 
-            print(np.min(entropy_unpadded), np.max(entropy_unpadded))
+            print(np.min(entropy_agg), np.max(entropy_agg))
+    else: # A(original) + B(variance)
+        if config.PROBABILITY: # A1 + B
+            pred_offset_agg = pred_orig_offset + config.LAMBDA_1_UNCERTAINTY * variance_unpadded
+        elif config.ENTROPY: # A2 + B
+            entropy_agg = entropy_orig + config.LAMBDA_1_UNCERTAINTY * variance_unpadded
 
     
     if config.PROBABILITY:
         # get aggregate score of each superpixel
-        superpixel_scores = get_superpixel_scores(superpixels_group, pred_unpadded, forest_prob, config.SUPERPIXEL_SCORE)
+        superpixel_scores = get_superpixel_scores(superpixels_group, pred_offset_agg, forest_prob, config.SUPERPIXEL_SCORE)
 
         # sort by prob score in ascending order; most uncertain superpixel first (whichever is close to 0.5)
         superpixel_scores = dict(sorted(superpixel_scores.items(), key=lambda item: item[1]))
     elif config.ENTROPY:
         # get aggregate score of each superpixel
-        superpixel_scores = get_superpixel_scores(superpixels_group, entropy_unpadded, forest_prob, config.SUPERPIXEL_SCORE)
+        superpixel_scores = get_superpixel_scores(superpixels_group, entropy_agg, forest_prob, config.SUPERPIXEL_SCORE)
 
         # sort by prob score in descending order; highest entropy first
         superpixel_scores = dict(sorted(superpixel_scores.items(), key=lambda item: item[1]), reverse=True)
@@ -1110,7 +1041,7 @@ def recommend_superpixels(TEST_REGION, entropy, probability, cod, transformation
             superpixel_score = "MAX"
             
         # get aggregate score of each superpixel
-        superpixel_scores = get_superpixel_scores(superpixels_group, pred_unpadded_cod, forest_prob, superpixel_score)
+        superpixel_scores = get_superpixel_scores(superpixels_group, cod_loss_unpadded, forest_prob, superpixel_score)
 
         # sort by prob score in ascending order; most uncertain superpixel first (whichever is close to 0.5)
         superpixel_scores = dict(sorted(superpixel_scores.items(), key=lambda item: item[1]), reverse=True)
@@ -1120,9 +1051,9 @@ def recommend_superpixels(TEST_REGION, entropy, probability, cod, transformation
 
 
     ## Stitch pred patches back together
-    _, pred_stitched_2 = stitch_patches(pred_patches_dict, TEST_REGION)
-    pred_unpadded_2 = center_crop(pred_stitched_2, height, width, image = False)
-    pred_final = 1 - np.argmax(pred_unpadded_2, axis=-1)
+    # _, pred_stitched_2 = stitch_patches(pred_patches_dict, TEST_REGION)
+    # pred_unpadded_2 = center_crop(pred_stitched_2, height, width, image = False)
+    pred_final = 1 - np.argmax(pred_orig, axis=-1)
     np.save(f"./users/{student_id}/output/Region_1_pred.npy", pred_final)
     pred_final = np.where(pred_final == 0, -1, pred_final)
 
@@ -1179,6 +1110,8 @@ def recommend_superpixels(TEST_REGION, entropy, probability, cod, transformation
     pred_labels = (flood_labels + dry_labels).astype('uint8')
     pim = Image.fromarray(pred_labels)
     pim.convert('RGB').save(f'./users/{student_id}/output/R{TEST_REGION}_pred_test.png')
+
+    # pim.convert('RGB').save(f'./users/{student_id}/output/lambda_search/L1.{config.LAMBDA_1_UNCERTAINTY}_P.{config.PROBABILITY}_E.{config.ENTROPY}_C.{config.COD}_TA.{config.TRANSFORMATION_SCORE}_SA.{config.SUPERPIXEL_SCORE}/R{TEST_REGION}_pred_test_{al_cycle}.png')
 
     return metrices
 
@@ -1359,8 +1292,8 @@ def train(TEST_REGION, entropy, probability, cod, transformation_agg, superpixel
 
             ## Get model prediction
             # pred = models['original'](rgb_data, norm_elev_data)
-            pred_backbone = models['backbone'](rgb_data, norm_elev_data)
-            pred_ema = models['ema'](rgb_data, norm_elev_data)
+            logits_backbone, pred_backbone = models['backbone'](rgb_data, norm_elev_data)
+            logits_ema, pred_ema = models['ema'](rgb_data, norm_elev_data)
             
             rgb_data_flipx = torch.flip(rgb_data, dims=(-1,))
             rgb_data_flipy = torchvision.transforms.functional.vflip(rgb_data)
@@ -1374,11 +1307,11 @@ def train(TEST_REGION, entropy, probability, cod, transformation_agg, superpixel
             norm_elev_data_rot180 = torchvision.transforms.functional.rotate(norm_elev_data, angle=180)
             norm_elev_data_rot270 = torchvision.transforms.functional.rotate(norm_elev_data, angle=270)
 
-            pred_flipx = models['backbone'](rgb_data_flipx, norm_elev_data_flipx) # get pred for horizontal flip
-            pred_flipy = models['backbone'](rgb_data_flipy, norm_elev_data_flipy) # get pred for horizontal flip
-            pred_rot90 = models['backbone'](rgb_data_rot90, norm_elev_data_rot90) # get pred for horizontal flip
-            pred_rot180 = models['backbone'](rgb_data_rot180, norm_elev_data_rot180) # get pred for horizontal flip
-            pred_rot270 = models['backbone'](rgb_data_rot270, norm_elev_data_rot270) # get pred for horizontal flip
+            logits_flipx, pred_flipx = models['backbone'](rgb_data_flipx, norm_elev_data_flipx) # get pred for horizontal flip
+            logits_flipy, pred_flipy = models['backbone'](rgb_data_flipy, norm_elev_data_flipy) # get pred for horizontal flip
+            logits_rot90, pred_rot90 = models['backbone'](rgb_data_rot90, norm_elev_data_rot90) # get pred for horizontal flip
+            logits_rot180, pred_rot180 = models['backbone'](rgb_data_rot180, norm_elev_data_rot180) # get pred for horizontal flip
+            logits_rot270, pred_rot270 = models['backbone'](rgb_data_rot270, norm_elev_data_rot270) # get pred for horizontal flip
 
             pred_flipx_inv = torch.flip(pred_flipx, dims=(-1,)) # flip back to original orientation
             pred_flipy_inv = torchvision.transforms.functional.vflip(pred_flipy) # flip back to original orientation
@@ -1405,9 +1338,13 @@ def train(TEST_REGION, entropy, probability, cod, transformation_agg, superpixel
             # Calculate 3 loss and aggregate them
             supervised_loss = (loss1 + loss2 + loss3 + loss4 + loss5 + loss6)/6
             self_consistency_loss = loss_self_consistency(all_logits, labels)
-            ema_loss = F.mse_loss(pred_backbone * unknown_mask, pred_ema * unknown_mask) # unknown mask prevents known pixels from being included in the loss computation
 
-            total_loss = supervised_loss + config.LAMBDA_1 * self_consistency_loss + config.LAMBDA_2 * ema_loss # TODO: these hyperparams should be tuned
+            if config.USE_LOGITS:
+                ema_loss = F.mse_loss(logits_backbone * unknown_mask, logits_ema * unknown_mask)
+            else:
+                ema_loss = F.mse_loss(pred_backbone * unknown_mask, pred_ema * unknown_mask) # unknown mask prevents known pixels from being included in the loss computation
+
+            total_loss = supervised_loss + config.BETA_1 * self_consistency_loss + config.BETA_2 * ema_loss # TODO: these hyperparams should be tuned
 
             # backpropagate the total loss
             # optimizers['original'].zero_grad()
@@ -1447,7 +1384,7 @@ def train(TEST_REGION, entropy, probability, cod, transformation_agg, superpixel
     
 
     # call AL pipeline once the model is retrained
-    recommend_superpixels(TEST_REGION, config.ENTROPY, config.PROBABILITY, config.COD, transformation_agg, superpixel_agg, student_id, al_cycle, updated_labels=updated_labels)
+    metrices = recommend_superpixels(TEST_REGION, config.ENTROPY, config.PROBABILITY, config.COD, transformation_agg, superpixel_agg, student_id, al_cycle+1, updated_labels=updated_labels)
 
     torch.save({'epoch': last_epoch,  # when resuming, we will start at the next epoch
                 'model': models['backbone'].state_dict(),
@@ -1456,7 +1393,7 @@ def train(TEST_REGION, entropy, probability, cod, transformation_agg, superpixel
     
     
     
-    return
+    return metrices
 
 
 if __name__ == "__main__":

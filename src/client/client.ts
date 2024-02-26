@@ -348,7 +348,7 @@ var uniforms = {
     flood: { type: 'bool', value: params.flood },
     quadrant: { value: metaState.quadrant },
     entropy: { value: 0 },
-    probability: { value: 1 },
+    probability: { value: 0},
     cod: { value: 0 },
     avgTransformation: {value: 1},
     minTransformation: {value: 0},
@@ -628,6 +628,10 @@ const maxTransformation = transformationFolder.add(checkboxValuesTransformation,
 const avgSuperpixel = superpixelFolder.add(checkboxValuesSuperpixel, 'avgSuperpixel').name('Average');
 const minSuperpixel = superpixelFolder.add(checkboxValuesSuperpixel, 'minSuperpixel').name('Minimum');
 const maxSuperpixel = superpixelFolder.add(checkboxValuesSuperpixel, 'maxSuperpixel').name('Maximum');
+
+// uniforms.probability.value = +checkboxValues['probability'];
+// uniforms.entropy.value = +checkboxValues['entropy'];
+// uniforms.cod.value = +checkboxValues['cod'];
 
 // Set up the mutual exclusivity behavior
 probability.onChange(function (value) {
