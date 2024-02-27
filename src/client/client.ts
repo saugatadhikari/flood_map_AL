@@ -833,7 +833,7 @@ function connectedSegSelect(x: number, y: number, flood: boolean, clear: boolean
         color = 'clear'
     }
     visited = new Map()
-    BFS(x, y, 'BFS_Segment', color)
+    BFS(x, y, 'BFS_Segment', color, flood)
 }
 
 const searchFunction = {
@@ -903,7 +903,7 @@ const fillFunction = {
 }
 
 var visited = new Map()
-function BFS(x: number, y: number, direction: string, color: string) {
+function BFS(x: number, y: number, direction: string, color: string, flood: boolean) {
     context!.fillStyle = color
     var stack = []
     visited.set(`${x}, ${y}`, 1)
@@ -913,6 +913,37 @@ function BFS(x: number, y: number, direction: string, color: string) {
     while (stack.length > 0) {
         y = stack.pop()!
         x = stack.pop()!
+
+        const pixelIndex = y * regionDimensions[0] + x
+        const pixelVal = gtJson[pixelIndex]
+
+        var flood_pixel = false;
+        var dry_pixel = false;
+        var unk_pixel = false;
+
+        if (pixelVal == 1){
+            flood_pixel = true;
+        }
+        else if (pixelVal == -1){
+            dry_pixel = true;
+        }
+        else{
+            unk_pixel = true;
+        }
+        
+        var stop_label_propagation = false;
+        if (pixelVal != 0){
+            if (flood == true && flood_pixel == true){
+                stop_label_propagation = false;
+            }
+            else if (flood == false && dry_pixel == true){
+                stop_label_propagation = false;
+            }
+            else{
+                stop_label_propagation = true;
+            }
+        }
+
         if (
             x < regionBounds[0] ||
             x > regionBounds[1] ||
@@ -921,6 +952,11 @@ function BFS(x: number, y: number, direction: string, color: string) {
         ) {
             continue
         }
+        else if (stop_label_propagation == true){
+            continue
+        }
+
+
         let [fillX, fillY] = fillFunction[_direction](x, y)
         if (color == 'clear') {
             sessionData.annotatedPixelCount--
@@ -1046,7 +1082,7 @@ function BFSHandler(x: number, y: number, flood: boolean, clear: boolean) {
     if (clear) {
         color = 'clear'
     }
-    BFS(x, y, type, color)
+    BFS(x, y, type, color, flood)
     // logMyState('f', 'BFS', flood, clear, camera, pointer, x, y, undefined, undefined, time)
 }
 
@@ -1249,7 +1285,7 @@ function polygonFillHandler(flood: boolean, clear: boolean, linePoints?: Array<n
     }
     visited = new Map()
     for (var i = 0; i < linePixels.length; i += 2) {
-        BFS(linePixels[i], linePixels[i + 1], type, color)
+        BFS(linePixels[i], linePixels[i + 1], type, color, flood)
     }
     // logMyState(
     //     'o',
