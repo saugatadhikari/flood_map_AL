@@ -1,11 +1,11 @@
    Metrics (Unit: %)    
 
-Accuracy         : 76.7
+Accuracy         : 41.97
 
-Dry Precision    : 54.51
-Dry Recall       : 99.86
-Dry F1 score     : 70.53
+Dry Precision    : 19.48
+Dry Recall       : 34.43
+Dry F1 score     : 24.88
 
-Flood Precision  : 99.92
-Flood Recall     : 67.73
-Flood F1 score   : 80.73
+Flood Precision  : 63.87
+Flood Recall     : 44.89
+Flood F1 score   : 52.72

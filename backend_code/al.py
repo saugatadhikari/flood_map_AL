@@ -136,7 +136,7 @@ def run_pred_al_probability(model, data_loader, TRANSFORMATION_SCORE):
         elif TRANSFORMATION_SCORE == "MAX":
             prob_variance = torch.max(torch.stack([pred_flipx_abs, pred_flipy_abs, pred_rot90_abs, pred_rot180_abs, pred_rot270_abs]), dim=0).values
             
-        # final_prob = pred_abs + config.LAMBDA_1_UNCERTAINTY * prob_variance
+        # final_prob = pred_abs + config.LAMBDA_1 * prob_variance
         # print(final_prob.shape)
         # final_prob_np = final_prob.detach().cpu().numpy()
 
@@ -220,7 +220,7 @@ def run_pred_al_entropy(model, data_loader, TRANSFORMATION_SCORE):
 
         # entropy_orig = log_out * pred_clone
 
-        # final_entropy = entropy_orig + config.LAMBDA_1_UNCERTAINTY * entropy_variance
+        # final_entropy = entropy_orig + config.LAMBDA_1 * entropy_variance
         # print("entropy shape: ", final_entropy.shape)
 
         pred_np = pred.detach().cpu().numpy()
@@ -771,6 +771,12 @@ def recommend_superpixels(TEST_REGION, entropy, probability, cod, transformation
     if not os.path.exists(f"./users/{student_id}/output"):
         os.mkdir(f"./users/{student_id}/output")
 
+    if not os.path.exists(f"./users/{student_id}/output/Region_{TEST_REGION}_TEST"):
+        os.mkdir(f"./users/{student_id}/output/Region_{TEST_REGION}_TEST")
+
+    if not os.path.exists(f"./users/{student_id}/output/Region_{TEST_REGION}_TEST/L1.{config.LAMBDA_1}_L2.{config.LAMBDA_2}_B1.{config.BETA_1}_B2.{config.BETA_2}_P.{config.PROBABILITY}_E.{config.ENTROPY}_C.{config.COD}_TA.{config.TRANSFORMATION_SCORE}_SA.{config.SUPERPIXEL_SCORE}"):
+        os.mkdir(f"./users/{student_id}/output/Region_{TEST_REGION}_TEST/L1.{config.LAMBDA_1}_L2.{config.LAMBDA_2}_B1.{config.BETA_1}_B2.{config.BETA_2}_P.{config.PROBABILITY}_E.{config.ENTROPY}_C.{config.COD}_TA.{config.TRANSFORMATION_SCORE}_SA.{config.SUPERPIXEL_SCORE}")
+
     if not os.path.exists(f"./users/{student_id}/saved_models_al"):
         os.mkdir(f"./users/{student_id}/saved_models_al")
     
@@ -788,6 +794,9 @@ def recommend_superpixels(TEST_REGION, entropy, probability, cod, transformation
         print("HERE")
         config.ENTROPY = entropy
         config.PROBABILITY = probability
+
+    if (config.ENTROPY == 0 and config.PROBABILITY == 0 and config.COD == 0):
+        config.PROBABILITY = 1
 
     config.COD = cod
 
@@ -810,10 +819,6 @@ def recommend_superpixels(TEST_REGION, entropy, probability, cod, transformation
 
     print(config.ENTROPY, config.PROBABILITY)
     print(config.TRANSFORMATION_SCORE, config.SUPERPIXEL_SCORE)
-
-    
-
-    # return # TODO: remove after test
 
 
     start = time.time()
@@ -1008,19 +1013,19 @@ def recommend_superpixels(TEST_REGION, entropy, probability, cod, transformation
 
         if config.PROBABILITY:
             # compute the weighted sum to 2 uncertainty scores (probability offset and COD)
-            pred_offset_agg = pred_orig_offset + config.LAMBDA_1_UNCERTAINTY * variance_unpadded + config.LAMBDA_2_UNCERTAINTY * (1 - cod_loss_unpadded) # for PROB: 0 means uncertain; for COD: 1 means uncertain # A+B+C
+            pred_offset_agg = pred_orig_offset + config.LAMBDA_1 * variance_unpadded + config.LAMBDA_2_UNCERTAINTY * (1 - cod_loss_unpadded) # for PROB: 0 means uncertain; for COD: 1 means uncertain # A+B+C
 
             print("A1 + B + C: ", np.min(pred_offset_agg), np.max(pred_offset_agg))
         elif config.ENTROPY:
             # compute the weighted sum to 2 uncertainty scores (entropy and COD); higher entropy means recommend so we add (1 - pred_unpadded_cod)
-            entropy_agg = entropy_orig + config.LAMBDA_1_UNCERTAINTY * variance_unpadded + config.LAMBDA_2_UNCERTAINTY * cod_loss_unpadded # for ENT: 1 means uncertain; for COD: 1 means uncertain # A+B+C
+            entropy_agg = entropy_orig + config.LAMBDA_1 * variance_unpadded + config.LAMBDA_2_UNCERTAINTY * cod_loss_unpadded # for ENT: 1 means uncertain; for COD: 1 means uncertain # A+B+C
 
             print(np.min(entropy_agg), np.max(entropy_agg))
     else: # A(original) + B(variance)
         if config.PROBABILITY: # A1 + B
-            pred_offset_agg = pred_orig_offset + config.LAMBDA_1_UNCERTAINTY * variance_unpadded
+            pred_offset_agg = pred_orig_offset + config.LAMBDA_1 * variance_unpadded
         elif config.ENTROPY: # A2 + B
-            entropy_agg = entropy_orig + config.LAMBDA_1_UNCERTAINTY * variance_unpadded
+            entropy_agg = entropy_orig + config.LAMBDA_1 * variance_unpadded
 
     
     if config.PROBABILITY:
@@ -1062,13 +1067,13 @@ def recommend_superpixels(TEST_REGION, entropy, probability, cod, transformation
 
     print(metrices)
 
-    file_path = f"./users/{student_id}/output/Region_{TEST_REGION}_Metrics.txt"
-    # with open(file_path, "w") as json_file:
-    #     json.dump(metrices, json_file, indent=4)
-
-    with open(file_path, "w") as fp:
+    file_path_lambda_search = f"./users/{student_id}/output/Region_{TEST_REGION}_TEST/L1.{config.LAMBDA_1}_L2.{config.LAMBDA_2}_B1.{config.BETA_1}_B2.{config.BETA_2}_P.{config.PROBABILITY}_E.{config.ENTROPY}_C.{config.COD}_TA.{config.TRANSFORMATION_SCORE}_SA.{config.SUPERPIXEL_SCORE}/Region_{TEST_REGION}_Metrics.txt"
+    with open(file_path_lambda_search, "w") as fp:
         fp.write(metrices)
 
+    file_path = f"./users/{student_id}/output/Region_{TEST_REGION}_Metrics.txt"
+    with open(file_path, "w") as fp:
+        fp.write(metrices)
     
     # get the superpixels to be recommended in this iteration and save as png
     # interval = (139 - 25) / (max_items - 1)
@@ -1111,7 +1116,7 @@ def recommend_superpixels(TEST_REGION, entropy, probability, cod, transformation
     pim = Image.fromarray(pred_labels)
     pim.convert('RGB').save(f'./users/{student_id}/output/R{TEST_REGION}_pred_test.png')
 
-    # pim.convert('RGB').save(f'./users/{student_id}/output/lambda_search/L1.{config.LAMBDA_1_UNCERTAINTY}_P.{config.PROBABILITY}_E.{config.ENTROPY}_C.{config.COD}_TA.{config.TRANSFORMATION_SCORE}_SA.{config.SUPERPIXEL_SCORE}/R{TEST_REGION}_pred_test_{al_cycle}.png')
+    # pim.convert('RGB').save(f'./users/{student_id}/output/lambda_search/L1.{config.LAMBDA_1}_P.{config.PROBABILITY}_E.{config.ENTROPY}_C.{config.COD}_TA.{config.TRANSFORMATION_SCORE}_SA.{config.SUPERPIXEL_SCORE}/R{TEST_REGION}_pred_test_{al_cycle}.png')
 
     return metrices
 
@@ -1146,6 +1151,12 @@ def train(TEST_REGION, entropy, probability, cod, transformation_agg, superpixel
 
     if not os.path.exists(f"./users/{student_id}/output"):
         os.mkdir(f"./users/{student_id}/output")
+
+    if not os.path.exists(f"./users/{student_id}/output/Region_{TEST_REGION}_TEST"):
+        os.mkdir(f"./users/{student_id}/output/Region_{TEST_REGION}_TEST")
+
+    if not os.path.exists(f"./users/{student_id}/output/Region_{TEST_REGION}_TEST/L1.{config.LAMBDA_1}_L2.{config.LAMBDA_2}_B1.{config.BETA_1}_B2.{config.BETA_2}_P.{config.PROBABILITY}_E.{config.ENTROPY}_C.{config.COD}_TA.{config.TRANSFORMATION_SCORE}_SA.{config.SUPERPIXEL_SCORE}"):
+        os.mkdir(f"./users/{student_id}/output/Region_{TEST_REGION}_TEST/L1.{config.LAMBDA_1}_L2.{config.LAMBDA_2}_B1.{config.BETA_1}_B2.{config.BETA_2}_P.{config.PROBABILITY}_E.{config.ENTROPY}_C.{config.COD}_TA.{config.TRANSFORMATION_SCORE}_SA.{config.SUPERPIXEL_SCORE}") 
 
     if not os.path.exists(f"./users/{student_id}/saved_models_al"):
         os.mkdir(f"./users/{student_id}/saved_models_al")
