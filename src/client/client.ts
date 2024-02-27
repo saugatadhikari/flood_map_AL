@@ -931,8 +931,11 @@ function BFS(x: number, y: number, direction: string, color: string, flood: bool
             unk_pixel = true;
         }
         
-        var stop_label_propagation = false;
-        if (pixelVal != 0){
+        var stop_label_propagation;
+        if (pixelVal == 0){
+            stop_label_propagation = true;
+        }
+        else if (pixelVal != 0){
             if (flood == true && flood_pixel == true){
                 stop_label_propagation = false;
             }
