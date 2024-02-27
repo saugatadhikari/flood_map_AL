@@ -76,7 +76,7 @@ const pixelDict: PixelDict = {};
 var confidenceJSON: PixelDict
 
 var metrices: any
-var forestJson: any
+// var forestJson: any
 
 let host = ''
 if (location.hostname === 'localhost' || location.hostname === '127.0.0.1' || location.hostname === '172.28.200.135') {
@@ -1490,13 +1490,13 @@ const onKeyPress = (event: KeyboardEvent) => {
         ) {
             // y = regionDimensions[1] - y
 
-            const pixelIndex = y * regionDimensions[0] + x
-            const pixelVal = forestJson[pixelIndex]
+            // const pixelIndex = y * regionDimensions[0] + x
+            // const pixelVal = forestJson[pixelIndex]
             
-            if (pixelVal == 0){
-                polygonSelectionHandler(x, y, params.flood, params.clear)
-            }
-            // polygonSelectionHandler(x, y, params.flood, params.clear)
+            // if (pixelVal == 0){
+            //     polygonSelectionHandler(x, y, params.flood, params.clear)
+            // }
+            polygonSelectionHandler(x, y, params.flood, params.clear)
         }
     } else if (event.key == 'o' && metaState.polygonSelection) {
         polygonFillHandler(params.flood, params.clear)
@@ -1750,9 +1750,9 @@ var texContext : CanvasRenderingContext2D
                                     // document.body.appendChild(predCanvas);
                                 };
                                 
-                                const forestResponse = await fetch(`http://127.0.0.1:5000/forest-json?testRegion=${testRegion}`);
-                                forestJson = await forestResponse.json();
-                                console.log("forestJson: ", forestJson)
+                                // const forestResponse = await fetch(`http://127.0.0.1:5000/forest-json?testRegion=${testRegion}`);
+                                // forestJson = await forestResponse.json();
+                                // console.log("forestJson: ", forestJson)
 
                                 const confidenceBuffer = await fetch(`http://127.0.0.1:5000/confidence?testRegion=${testRegion}`).then(response => response.arrayBuffer());
                                 console.log("confidenceBuffer: ", confidenceBuffer)
