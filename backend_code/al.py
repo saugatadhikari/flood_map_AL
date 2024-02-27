@@ -774,9 +774,6 @@ def recommend_superpixels(TEST_REGION, entropy, probability, cod, transformation
     if not os.path.exists(f"./users/{student_id}/output/Region_{TEST_REGION}_TEST"):
         os.mkdir(f"./users/{student_id}/output/Region_{TEST_REGION}_TEST")
 
-    if not os.path.exists(f"./users/{student_id}/output/Region_{TEST_REGION}_TEST/L1.{config.LAMBDA_1}_L2.{config.LAMBDA_2}_B1.{config.BETA_1}_B2.{config.BETA_2}_P.{config.PROBABILITY}_E.{config.ENTROPY}_C.{config.COD}_TA.{config.TRANSFORMATION_SCORE}_SA.{config.SUPERPIXEL_SCORE}"):
-        os.mkdir(f"./users/{student_id}/output/Region_{TEST_REGION}_TEST/L1.{config.LAMBDA_1}_L2.{config.LAMBDA_2}_B1.{config.BETA_1}_B2.{config.BETA_2}_P.{config.PROBABILITY}_E.{config.ENTROPY}_C.{config.COD}_TA.{config.TRANSFORMATION_SCORE}_SA.{config.SUPERPIXEL_SCORE}")
-
     if not os.path.exists(f"./users/{student_id}/saved_models_al"):
         os.mkdir(f"./users/{student_id}/saved_models_al")
     
@@ -797,6 +794,9 @@ def recommend_superpixels(TEST_REGION, entropy, probability, cod, transformation
 
     if (config.ENTROPY == 0 and config.PROBABILITY == 0 and config.COD == 0):
         config.PROBABILITY = 1
+
+    if not os.path.exists(f"./users/{student_id}/output/Region_{TEST_REGION}_TEST/L1.{config.LAMBDA_1}_L2.{config.LAMBDA_2}_B1.{config.BETA_1}_B2.{config.BETA_2}_P.{config.PROBABILITY}_E.{config.ENTROPY}_C.{config.COD}_TA.{config.TRANSFORMATION_SCORE}_SA.{config.SUPERPIXEL_SCORE}"):
+        os.mkdir(f"./users/{student_id}/output/Region_{TEST_REGION}_TEST/L1.{config.LAMBDA_1}_L2.{config.LAMBDA_2}_B1.{config.BETA_1}_B2.{config.BETA_2}_P.{config.PROBABILITY}_E.{config.ENTROPY}_C.{config.COD}_TA.{config.TRANSFORMATION_SCORE}_SA.{config.SUPERPIXEL_SCORE}")
 
     config.COD = cod
 
@@ -1396,7 +1396,7 @@ def train(TEST_REGION, entropy, probability, cod, transformation_agg, superpixel
     
 
     # call AL pipeline once the model is retrained
-    metrices = recommend_superpixels(TEST_REGION, config.ENTROPY, config.PROBABILITY, config.COD, transformation_agg, superpixel_agg, student_id, al_cycle+1, updated_labels=updated_labels)
+    metrices = recommend_superpixels(TEST_REGION, config.ENTROPY, config.PROBABILITY, config.COD, transformation_agg, superpixel_agg, student_id, al_cycle, updated_labels=updated_labels)
 
     torch.save({'epoch': last_epoch,  # when resuming, we will start at the next epoch
                 'model': models['backbone'].state_dict(),
