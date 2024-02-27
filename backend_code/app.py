@@ -169,6 +169,20 @@ def forest_json():
 
     return payload
 
+@app.route('/gt-json', methods=['GET'])
+def gt_json():
+    TEST_REGION = int(request.args.get('testRegion', 1))
+    file_path = f"./data_al/gt/Region_{TEST_REGION}_gt_json.json"
+
+    gts = {}
+    with open(file_path, 'r') as json_file:
+        gts = json.load(json_file)
+
+    payload = make_response(jsonify(gts), 200)
+    payload.headers.add('Access-Control-Allow-Origin', '*')
+
+    return payload
+
 @app.route('/metrics-json', methods=['GET'])
 def metrics_json():
     TEST_REGION = int(request.args.get('testRegion', 1))

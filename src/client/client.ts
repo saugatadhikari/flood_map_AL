@@ -77,6 +77,7 @@ var confidenceJSON: PixelDict
 
 var metrices: any
 // var forestJson: any
+var gtJson: any
 
 let host = ''
 if (location.hostname === 'localhost' || location.hostname === '127.0.0.1' || location.hostname === '172.28.200.135') {
@@ -1386,7 +1387,33 @@ const onKeyPress = (event: KeyboardEvent) => {
         let [x, y_orig] = performRayCasting()
 
         let y: any = regionDimensions[1] - 1 - y_orig // y is height, x is width
-        BFSHandler(x, y, params.flood, params.clear)
+
+        const pixelIndex = y * regionDimensions[0] + x
+        const pixelVal = gtJson[pixelIndex]
+
+        var flood_pixel = false;
+        var dry_pixel = false;
+        var unk_pixel = false;
+
+        if (pixelVal == 1){
+            flood_pixel = true;
+        }
+        else if (pixelVal == -1){
+            dry_pixel = true;
+        }
+        else{
+            unk_pixel = true;
+        }
+        
+        if (pixelVal != 0){
+            if (params.flood == true && flood_pixel == true){
+                BFSHandler(x, y, params.flood, params.clear)
+            }
+            else if (params.flood == false && dry_pixel == true){
+                BFSHandler(x, y, params.flood, params.clear)
+            }
+        }
+        
 
         // const pixelIndex = y * regionDimensions[0] + x
         // const pixelVal = forestJson[pixelIndex]
@@ -1753,6 +1780,10 @@ var texContext : CanvasRenderingContext2D
                                 // const forestResponse = await fetch(`http://127.0.0.1:5000/forest-json?testRegion=${testRegion}`);
                                 // forestJson = await forestResponse.json();
                                 // console.log("forestJson: ", forestJson)
+
+                                const gtResponse = await fetch(`http://127.0.0.1:5000/gt-json?testRegion=${testRegion}`);
+                                gtJson = await gtResponse.json();
+                                console.log("gtJson: ", gtJson)
 
                                 const confidenceBuffer = await fetch(`http://127.0.0.1:5000/confidence?testRegion=${testRegion}`).then(response => response.arrayBuffer());
                                 console.log("confidenceBuffer: ", confidenceBuffer)

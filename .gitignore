@@ -166,6 +166,7 @@ cython_debug/
 *.ckpt
 
 *_forest_json.json
+*_gt_json.json
 *_Metrics.json
 
 backend_code/users/*
