@@ -68,7 +68,7 @@ def acquire_labels(i, lambda_1, probability, entropy, cod, transformation_agg, s
 
     # TODO: Run elevation-guided BFS
     dem = np.load(f"./data_al/repo/Features_7_Channels/Region_{TEST_REGION}_Features7Channel.npy")[:,:,3]
-    new_labels = elevation_guided_BFS(new_labels, dem)
+#     new_labels = elevation_guided_BFS(new_labels, dem)
 
     flood_labels = np.where(new_labels == 1, 1, 0)
     dry_labels = np.where(new_labels == -1, 1, 0)
@@ -79,10 +79,10 @@ def acquire_labels(i, lambda_1, probability, entropy, cod, transformation_agg, s
     final_labels = (flood_labels + dry_labels).astype('uint8')
     pim = Image.fromarray(final_labels)
 
-    pim.convert('RGB').save(f'./users/{student_id}/output/lambda_search/L1.{lambda_1}_P.{probability}_E.{entropy}_C.{cod}_TA.{transformation_agg}_SA.{superpixel_agg}/R{TEST_REGION}_labels_{i}.png')
+    pim.convert('RGB').save(f'./users/{student_id}/output/lambda_search/L1.{lambda_1}_L2.{lambda_2}_B1.{beta_1}_B2.{beta_2}_P.{probability}_E.{entropy}_C.{cod}_TA.{transformation_agg}_SA.{superpixel_agg}/R{TEST_REGION}_labels_{i}.png')
     pim.convert('RGB').save(f'./users/{student_id}/output/R{TEST_REGION}_labels.png')
 
-LAMBDA_1_UNCERTAINTY_GRID = [0.1, 0.3, 0.5, 0.7, 0.9]
+LAMBDA_1_UNCERTAINTY_GRID = [0.1, 0.2, 0.3, 0.4, 0.5]
 
 for lambda_1 in LAMBDA_1_UNCERTAINTY_GRID:
 
@@ -94,58 +94,28 @@ for lambda_1 in LAMBDA_1_UNCERTAINTY_GRID:
     transformation_agg = "avg"
     superpixel_agg = "avg"
     student_id = "saugat"
-    TEST_REGION = 1
+    TEST_REGION = 3
+    
+    for TEST_REGION in [1,2,3]:
 
-    if os.path.exists(f"./users/{student_id}/output/R{TEST_REGION}_labels.png"):
-        os.remove(f"./users/{student_id}/output/R{TEST_REGION}_labels.png")
+        if os.path.exists(f"./users/{student_id}/output/R{TEST_REGION}_labels.png"):
+            os.remove(f"./users/{student_id}/output/R{TEST_REGION}_labels.png")
 
-    config.LAMBDA_1_UNCERTAINTY = lambda_1
+        config.LAMBDA_1 = lambda_1
 
-    if not os.path.exists(f"./users/{student_id}/output/lambda_search/L1.{lambda_1}_P.{probability}_E.{entropy}_C.{cod}_TA.{transformation_agg}_SA.{superpixel_agg}/"):
-        os.mkdir(f"./users/{student_id}/output/lambda_search/L1.{lambda_1}_P.{probability}_E.{entropy}_C.{cod}_TA.{transformation_agg}_SA.{superpixel_agg}/")
+        lambda_2 = 0
+        config.LAMBDA_2 = lambda_2
+        beta_1 = 0.1
+        beta_2 = 0.1
 
-    try:
-        with open(f"./users/{student_id}/al_cycles/R{TEST_REGION}.txt", 'r') as file:
-            content = file.read()
-            al_cycle = int(content) 
-    except FileNotFoundError:
-        al_cycle = 0
+        config.BETA_1 = beta_1
+        config.BETA_2 = beta_2
 
-    # to handle the situation where a user does AL for a while, terminated and starts again (all the process has to be completed in 1 go, there can be no break in between)
-    if initial:
-        try:
-            with open(f"./users/{student_id}/resume_epoch/R{TEST_REGION}.txt", 'w') as file:
-                file.write(str(0))
-        except FileNotFoundError:
-            pass
 
-        try:
-            with open(f"./users/{student_id}/al_cycles/R{TEST_REGION}.txt", 'w') as file:
-                file.write(str(0))
-                al_cycle = 0
-        except FileNotFoundError:
-            pass
 
-        try:
-            with open(f"./users/{student_id}/al_iters/R{TEST_REGION}.txt", 'w') as file:
-                file.write(str(0))
-        except FileNotFoundError:
-            pass
+        if not os.path.exists(f"./users/{student_id}/output/lambda_search/L1.{lambda_1}_L2.{lambda_2}_B1.{beta_1}_B2.{beta_2}_P.{probability}_E.{entropy}_C.{cod}_TA.{transformation_agg}_SA.{superpixel_agg}/"):
+            os.mkdir(f"./users/{student_id}/output/lambda_search/L1.{lambda_1}_L2.{lambda_2}_B1.{beta_1}_B2.{beta_2}_P.{probability}_E.{entropy}_C.{cod}_TA.{transformation_agg}_SA.{superpixel_agg}/")
 
-    metrices = {}
-    i=0
-    if int(recommend):
-        metrices = recommend_superpixels(TEST_REGION, entropy, probability, cod, transformation_agg, superpixel_agg, student_id, al_cycle)
-        acquire_labels(i, lambda_1, probability, entropy, cod, transformation_agg, superpixel_agg, TEST_REGION)
-
-        file_path = f"./users/{student_id}/output/lambda_search/L1.{lambda_1}_P.{probability}_E.{entropy}_C.{cod}_TA.{transformation_agg}_SA.{superpixel_agg}/Region_{TEST_REGION}_Metrics_{i}.txt"
-        with open(file_path, "w") as fp:
-            fp.write(metrices)
-        
-
-    for i in range(3):
-        print(i+1)
-        # read cycle from txt file
         try:
             with open(f"./users/{student_id}/al_cycles/R{TEST_REGION}.txt", 'r') as file:
                 content = file.read()
@@ -153,19 +123,61 @@ for lambda_1 in LAMBDA_1_UNCERTAINTY_GRID:
         except FileNotFoundError:
             al_cycle = 0
 
-        print("AL_cycle: ", al_cycle)
+        # to handle the situation where a user does AL for a while, terminated and starts again (all the process has to be completed in 1 go, there can be no break in between)
+        if initial:
+            try:
+                with open(f"./users/{student_id}/resume_epoch/R{TEST_REGION}.txt", 'w') as file:
+                    file.write(str(0))
+            except FileNotFoundError:
+                pass
 
-        # read iters from txt file
-        try:
-            with open(f"./users/{student_id}/al_iters/R{TEST_REGION}.txt", 'r') as file:
-                content = file.read()
-                al_iters = int(content) 
-        except FileNotFoundError:
-            al_iters = 0
+            try:
+                with open(f"./users/{student_id}/al_cycles/R{TEST_REGION}.txt", 'w') as file:
+                    file.write(str(0))
+                    al_cycle = 0
+            except FileNotFoundError:
+                pass
 
-        metrices = train(TEST_REGION, entropy, probability, cod, transformation_agg, superpixel_agg, student_id, al_cycle, al_iters)
-        acquire_labels(i+1, lambda_1, probability, entropy, cod, transformation_agg, superpixel_agg, TEST_REGION)
+            try:
+                with open(f"./users/{student_id}/al_iters/R{TEST_REGION}.txt", 'w') as file:
+                    file.write(str(0))
+            except FileNotFoundError:
+                pass
 
-        file_path = f"./users/{student_id}/output/lambda_search/L1.{lambda_1}_P.{probability}_E.{entropy}_C.{cod}_TA.{transformation_agg}_SA.{superpixel_agg}/Region_{TEST_REGION}_Metrics_{i+1}.txt"
-        with open(file_path, "w") as fp:
-            fp.write(metrices)
+        metrices = {}
+        i=0
+        if int(recommend):
+            metrices = recommend_superpixels(TEST_REGION, entropy, probability, cod, transformation_agg, superpixel_agg, student_id, al_cycle)
+            acquire_labels(i, lambda_1, probability, entropy, cod, transformation_agg, superpixel_agg, TEST_REGION)
+
+    #         file_path = f"./users/{student_id}/output/lambda_search/L1.{lambda_1}_P.{probability}_E.{entropy}_C.{cod}_TA.{transformation_agg}_SA.{superpixel_agg}/Region_{TEST_REGION}_Metrics_{i}.txt"
+    #         with open(file_path, "w") as fp:
+    #             fp.write(metrices)
+
+
+        for i in range(5):
+            print(i+1)
+            # read cycle from txt file
+            try:
+                with open(f"./users/{student_id}/al_cycles/R{TEST_REGION}.txt", 'r') as file:
+                    content = file.read()
+                    al_cycle = int(content) 
+            except FileNotFoundError:
+                al_cycle = 0
+
+            print("AL_cycle: ", al_cycle)
+
+            # read iters from txt file
+            try:
+                with open(f"./users/{student_id}/al_iters/R{TEST_REGION}.txt", 'r') as file:
+                    content = file.read()
+                    al_iters = int(content) 
+            except FileNotFoundError:
+                al_iters = 0
+
+            metrices = train(TEST_REGION, entropy, probability, cod, transformation_agg, superpixel_agg, student_id, al_cycle, al_iters)
+            acquire_labels(i+1, lambda_1, probability, entropy, cod, transformation_agg, superpixel_agg, TEST_REGION)
+
+    #         file_path = f"./users/{student_id}/output/lambda_search/L1.{lambda_1}_P.{probability}_E.{entropy}_C.{cod}_TA.{transformation_agg}_SA.{superpixel_agg}/Region_{TEST_REGION}_Metrics_{i+1}.txt"
+    #         with open(file_path, "w") as fp:
+    #             fp.write(metrices)
