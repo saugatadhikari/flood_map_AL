@@ -155,7 +155,7 @@ for lambda_1 in LAMBDA_1_UNCERTAINTY_GRID:
     #             fp.write(metrices)
 
 
-        for i in range(5):
+        for i in range(3):
             print(i+1)
             # read cycle from txt file
             try:
