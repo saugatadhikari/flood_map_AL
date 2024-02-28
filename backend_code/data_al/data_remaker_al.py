@@ -33,7 +33,7 @@ def pad_data(unpadded_data):
         left = int(width_pad/2)
         right = int(width_pad/2)
     else:
-        print("Odd Width")
+        # print("Odd Width")
         left = math.floor(width_pad/2)
         right = left+1
     
@@ -41,7 +41,7 @@ def pad_data(unpadded_data):
         top = int(height_pad/2)
         bottom = int(height_pad/2)
     else:
-        print("Odd Height")
+        # print("Odd Height")
         top = math.floor(height_pad/2)
         bottom = top+1
     
@@ -62,15 +62,15 @@ def crop_data(uncropped_data, region_num):
     height = uncropped_data.shape[0]
     width = uncropped_data.shape[1]
     
-    print("crop input height: ", height)
-    print("crop input width: ", width)
+    # print("crop input height: ", height)
+    # print("crop input width: ", width)
     
     vertial_patches = height//SPATIAL_SIZE
     horizontal_patches = width//SPATIAL_SIZE
     
-    print("vertial_patches: ", vertial_patches)
-    print("horizontal_patches: ", horizontal_patches)
-    print(region_num)
+    # print("vertial_patches: ", vertial_patches)
+    # print("horizontal_patches: ", horizontal_patches)
+    # print(region_num)
     
     cropped_data = []
     
@@ -104,15 +104,15 @@ def crop_data_al(uncropped_data, filename, is_feature = False):
     height = uncropped_data.shape[0]
     width = uncropped_data.shape[1]
     
-    print("crop input height: ", height)
-    print("crop input width: ", width)
+    # print("crop input height: ", height)
+    # print("crop input width: ", width)
     
     vertial_patches = height//SPATIAL_SIZE
     horizontal_patches = width//SPATIAL_SIZE
     
-    print("vertial_patches: ", vertial_patches)
-    print("horizontal_patches: ", horizontal_patches)
-    print(filename)
+    # print("vertial_patches: ", vertial_patches)
+    # print("horizontal_patches: ", horizontal_patches)
+    # print(filename)
     
     cropped_data = []
     

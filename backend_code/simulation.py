@@ -97,7 +97,7 @@ for lambda_1 in LAMBDA_1_UNCERTAINTY_GRID:
     TEST_REGION = 3
     
     for TEST_REGION in [1,2,3]:
-
+        print("TEST_REGION: ", TEST_REGION)
         if os.path.exists(f"./users/{student_id}/output/R{TEST_REGION}_labels.png"):
             os.remove(f"./users/{student_id}/output/R{TEST_REGION}_labels.png")
 

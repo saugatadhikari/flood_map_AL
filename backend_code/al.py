@@ -783,8 +783,8 @@ def recommend_superpixels(TEST_REGION, entropy, probability, cod, transformation
     if not os.path.exists(f"./users/{student_id}/resume_epoch"):
         os.mkdir(f"./users/{student_id}/resume_epoch")
 
-    print("ent", "prob", "cod")
-    print(entropy, probability, cod)
+    # print("ent", "prob", "cod")
+    # print(entropy, probability, cod)
 
     # fallback if user choose both to be 0
     if (entropy != 0 or probability != 0):
@@ -800,8 +800,8 @@ def recommend_superpixels(TEST_REGION, entropy, probability, cod, transformation
 
     config.COD = cod
 
-    print("ent", "prob", "cod")
-    print(config.ENTROPY, config.PROBABILITY, config.COD)
+    # print("ent", "prob", "cod")
+    # print(config.ENTROPY, config.PROBABILITY, config.COD)
 
     if transformation_agg.strip().lower() == 'avg':
         config.TRANSFORMATION_SCORE = 'AVG'
@@ -817,8 +817,8 @@ def recommend_superpixels(TEST_REGION, entropy, probability, cod, transformation
     else:
         config.SUPERPIXEL_SCORE = 'MIN'
 
-    print(config.ENTROPY, config.PROBABILITY)
-    print(config.TRANSFORMATION_SCORE, config.SUPERPIXEL_SCORE)
+    # print(config.ENTROPY, config.PROBABILITY)
+    # print(config.TRANSFORMATION_SCORE, config.SUPERPIXEL_SCORE)
 
 
     start = time.time()
@@ -828,7 +828,7 @@ def recommend_superpixels(TEST_REGION, entropy, probability, cod, transformation
     forest_labels = np.load(f"./data_al/forest/R{TEST_REGION}_forest_labels.npy") # TODO: make is a global variable or store in cache
     forest_prob = np.load(f"./data_al/forest/R{TEST_REGION}_forest.npy") # TODO: make is a global variable or store in cache
 
-    print(forest_labels.shape)
+    # print(forest_labels.shape)
 
     superpixels_group = defaultdict(list)
     forest_superpixels = {}
@@ -836,7 +836,7 @@ def recommend_superpixels(TEST_REGION, entropy, probability, cod, transformation
     # Iterate through the NumPy array to group pixels
     height = superpixels.shape[0]
     width = superpixels.shape[1]
-    print(height, width)
+    # print(height, width)
     for i in range(height):
         for j in range(width):
             pixel_value = superpixels[i][j]
@@ -942,7 +942,7 @@ def recommend_superpixels(TEST_REGION, entropy, probability, cod, transformation
         # stitch pred patches
         _, pred_stitched = stitch_patches(pred_patches_dict, TEST_REGION)
         pred_orig = center_crop(pred_stitched, height, width, image = False)
-        print(pred_orig.shape)
+        # print(pred_orig.shape)
 
         # get the offset of original prediction --> A1
         s1,s2,s3 = pred_orig.shape
@@ -957,10 +957,10 @@ def recommend_superpixels(TEST_REGION, entropy, probability, cod, transformation
         variance_unpadded = variance_unpadded[:,:,0]
         # variance_unpadded = np.sum(variance_unpadded, axis=-1)/2
 
-        print("offset: ", np.min(pred_orig_offset), np.max(pred_orig_offset))
-        print("variance: ", np.min(variance_unpadded), np.max(variance_unpadded))
-        print("pred_shape: ", pred_orig_offset.shape)
-        print("variance_shape: ", variance_unpadded.shape)
+        # print("offset: ", np.min(pred_orig_offset), np.max(pred_orig_offset))
+        # print("variance: ", np.min(variance_unpadded), np.max(variance_unpadded))
+        # print("pred_shape: ", pred_orig_offset.shape)
+        # print("variance_shape: ", variance_unpadded.shape)
 
     elif config.ENTROPY: # get A2 and B
         pred_patches_dict, variance_patches_dict = run_pred_al_entropy(models['backbone'], test_loader, config.TRANSFORMATION_SCORE)
@@ -968,7 +968,7 @@ def recommend_superpixels(TEST_REGION, entropy, probability, cod, transformation
         # stitch pred patches
         _, pred_stitched = stitch_patches(pred_patches_dict, TEST_REGION)
         pred_orig = center_crop(pred_stitched, height, width, image = False)
-        print(pred_orig.shape)
+        # print(pred_orig.shape)
 
         # get the entropy of original prediction --> A2
         pred_orig_clone = np.copy(pred_orig)
@@ -987,20 +987,20 @@ def recommend_superpixels(TEST_REGION, entropy, probability, cod, transformation
         variance_unpadded = variance_unpadded[:,:,0]
         # variance_unpadded = np.sum(variance_unpadded, axis=-1)/2
 
-        print("entropy: ", np.min(entropy_orig), np.max(entropy_orig))
-        print("variance: ", np.min(variance_unpadded), np.max(variance_unpadded))
-        print("pred_shape: ", entropy_orig.shape)
-        print("variance_shape: ", variance_unpadded.shape)
+        # print("entropy: ", np.min(entropy_orig), np.max(entropy_orig))
+        # print("variance: ", np.min(variance_unpadded), np.max(variance_unpadded))
+        # print("pred_shape: ", entropy_orig.shape)
+        # print("variance_shape: ", variance_unpadded.shape)
 
 
-    print("COD: ", config.COD)
+    # print("COD: ", config.COD)
     if config.COD: # A(original) + B(variance) + C(cod)
         pred_patches_dict, cod_loss_patches_dict = run_pred_al_cod(models, test_loader)
 
         # stitch pred patches
         _, pred_stitched = stitch_patches(pred_patches_dict, TEST_REGION)
         pred_orig = center_crop(pred_stitched, height, width, image = False)
-        print(pred_orig.shape)
+        # print(pred_orig.shape)
 
         # get COD --> C
         _, cod_loss = stitch_patches(cod_loss_patches_dict, TEST_REGION)
@@ -1008,20 +1008,20 @@ def recommend_superpixels(TEST_REGION, entropy, probability, cod, transformation
         cod_loss_unpadded = cod_loss_unpadded[:,:,0]
         # cod_loss_unpadded = np.sum(cod_loss_unpadded, axis=-1)/2
 
-        print("COD loss: ", np.min(cod_loss_unpadded), np.max(cod_loss_unpadded))
-        print("cod_loss_shape: ", cod_loss_unpadded.shape)
+        # print("COD loss: ", np.min(cod_loss_unpadded), np.max(cod_loss_unpadded))
+        # print("cod_loss_shape: ", cod_loss_unpadded.shape)
 
         if config.PROBABILITY:
             # compute the weighted sum to 2 uncertainty scores (probability offset and COD)
             # pred_offset_agg = pred_orig_offset + config.LAMBDA_1 * variance_unpadded + config.LAMBDA_2 * (1 - cod_loss_unpadded) # for PROB: 0 means uncertain; for COD: 1 means uncertain # A+B+C
             pred_offset_agg = pred_orig_offset + config.LAMBDA_1 * variance_unpadded - config.LAMBDA_2 * cod_loss_unpadded # for PROB: 0 means uncertain; for COD: 1 means uncertain # A+B+C
 
-            print("A1 + B + C: ", np.min(pred_offset_agg), np.max(pred_offset_agg))
+            # print("A1 + B + C: ", np.min(pred_offset_agg), np.max(pred_offset_agg))
         elif config.ENTROPY:
             # compute the weighted sum to 2 uncertainty scores (entropy and COD); higher entropy means recommend so we add (1 - pred_unpadded_cod)
             entropy_agg = entropy_orig + config.LAMBDA_1 * variance_unpadded + config.LAMBDA_2 * cod_loss_unpadded # for ENT: 1 means uncertain; for COD: 1 means uncertain # A+B+C
 
-            print(np.min(entropy_agg), np.max(entropy_agg))
+            # print(np.min(entropy_agg), np.max(entropy_agg))
     else: # A(original) + B(variance)
         if config.PROBABILITY: # A1 + B
             pred_offset_agg = pred_orig_offset + config.LAMBDA_1 * variance_unpadded
@@ -1066,7 +1066,7 @@ def recommend_superpixels(TEST_REGION, entropy, probability, cod, transformation
     gt_labels = np.load(f"./data_al/repo/groundTruths/Region_{TEST_REGION}_GT_Labels.npy")
     metrices = elev_eval.run_eval(pred_final, gt_labels)
 
-    print(metrices)
+    # print(metrices)
 
     file_path_lambda_search = f"./users/{student_id}/output/Region_{TEST_REGION}_TEST/L1.{config.LAMBDA_1}_L2.{config.LAMBDA_2}_B1.{config.BETA_1}_B2.{config.BETA_2}_P.{config.PROBABILITY}_E.{config.ENTROPY}_C.{config.COD}_TA.{config.TRANSFORMATION_SCORE}_SA.{config.SUPERPIXEL_SCORE}/Region_{TEST_REGION}_Metrics.txt"
     with open(file_path_lambda_search, "w") as fp:
@@ -1096,7 +1096,7 @@ def recommend_superpixels(TEST_REGION, entropy, probability, cod, transformation
 
     result_array[mask_blue] = [0.0, 0.0, 1.0] # For blue holes in superpixel !!!!!!
 
-    print(result_array.shape)
+    # print(result_array.shape)
     plt.imsave(f'./users/{student_id}/output/R{TEST_REGION}_superpixels_test.png', result_array)
 
     # user's annotation should stay the same in the predicted result even though model predicts otherwise
@@ -1145,7 +1145,7 @@ def train(TEST_REGION, entropy, probability, cod, transformation_agg, superpixel
 
     student_id = student_id.strip()
 
-    print("Retraining the Model with new labels")
+    # print("Retraining the Model with new labels")
 
     if not os.path.exists(f"./users/{student_id}"):
         os.mkdir(f"./users/{student_id}")
