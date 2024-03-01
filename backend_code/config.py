@@ -7,7 +7,7 @@ IN_CHANNEL = 6
 N_CLASSES = 2
 
 # these should be tuned
-EPOCHS = 5
+EPOCHS = 3
 NUM_RECOMMEND = 25
 SC_LOSS = 0
 SC_ENTROPY = 0
