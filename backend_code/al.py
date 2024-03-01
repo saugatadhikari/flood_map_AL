@@ -795,10 +795,10 @@ def recommend_superpixels(TEST_REGION, entropy, probability, cod, transformation
     if (config.ENTROPY == 0 and config.PROBABILITY == 0 and config.COD == 0):
         config.PROBABILITY = 1
 
+    config.COD = cod
+
     if not os.path.exists(f"./users/{student_id}/output/Region_{TEST_REGION}_TEST/L1.{config.LAMBDA_1}_L2.{config.LAMBDA_2}_B1.{config.BETA_1}_B2.{config.BETA_2}_P.{config.PROBABILITY}_E.{config.ENTROPY}_C.{config.COD}_TA.{config.TRANSFORMATION_SCORE}_SA.{config.SUPERPIXEL_SCORE}"):
         os.mkdir(f"./users/{student_id}/output/Region_{TEST_REGION}_TEST/L1.{config.LAMBDA_1}_L2.{config.LAMBDA_2}_B1.{config.BETA_1}_B2.{config.BETA_2}_P.{config.PROBABILITY}_E.{config.ENTROPY}_C.{config.COD}_TA.{config.TRANSFORMATION_SCORE}_SA.{config.SUPERPIXEL_SCORE}")
-
-    config.COD = cod
 
     # print("ent", "prob", "cod")
     # print(config.ENTROPY, config.PROBABILITY, config.COD)
@@ -1019,14 +1019,14 @@ def recommend_superpixels(TEST_REGION, entropy, probability, cod, transformation
             # print("A1 + B + C: ", np.min(pred_offset_agg), np.max(pred_offset_agg))
         elif config.ENTROPY:
             # compute the weighted sum to 2 uncertainty scores (entropy and COD); higher entropy means recommend so we add (1 - pred_unpadded_cod)
-            entropy_agg = entropy_orig + config.LAMBDA_1 * variance_unpadded + config.LAMBDA_2 * cod_loss_unpadded # for ENT: 1 means uncertain; for COD: 1 means uncertain # A+B+C
+            entropy_agg = -entropy_orig - config.LAMBDA_1 * variance_unpadded - config.LAMBDA_2 * cod_loss_unpadded # for ENT: 1 means uncertain; for COD: 1 means uncertain # A+B+C
 
             # print(np.min(entropy_agg), np.max(entropy_agg))
     else: # A(original) + B(variance)
         if config.PROBABILITY: # A1 + B
             pred_offset_agg = pred_orig_offset + config.LAMBDA_1 * variance_unpadded
         elif config.ENTROPY: # A2 + B
-            entropy_agg = entropy_orig + config.LAMBDA_1 * variance_unpadded
+            entropy_agg = -entropy_orig - config.LAMBDA_1 * variance_unpadded
 
     
     if config.PROBABILITY:
@@ -1040,7 +1040,10 @@ def recommend_superpixels(TEST_REGION, entropy, probability, cod, transformation
         superpixel_scores = get_superpixel_scores(superpixels_group, entropy_agg, forest_prob, config.SUPERPIXEL_SCORE)
 
         # sort by prob score in descending order; highest entropy first
-        superpixel_scores = dict(sorted(superpixel_scores.items(), key=lambda item: item[1]), reverse=True)
+        # superpixel_scores = dict(sorted(superpixel_scores.items(), key=lambda item: item[1]), reverse=True)
+
+        # after the sign is reversed
+        superpixel_scores = dict(sorted(superpixel_scores.items(), key=lambda item: item[1]))
     elif config.COD:
         superpixel_score = config.SUPERPIXEL_SCORE
         if config.SUPERPIXEL_SCORE == "MIN":
@@ -1050,7 +1053,10 @@ def recommend_superpixels(TEST_REGION, entropy, probability, cod, transformation
         superpixel_scores = get_superpixel_scores(superpixels_group, cod_loss_unpadded, forest_prob, superpixel_score)
 
         # sort by prob score in ascending order; most uncertain superpixel first (whichever is close to 0.5)
-        superpixel_scores = dict(sorted(superpixel_scores.items(), key=lambda item: item[1]), reverse=True)
+        # superpixel_scores = dict(sorted(superpixel_scores.items(), key=lambda item: item[1]), reverse=True)
+
+        # after the sign is reversed
+        superpixel_scores = dict(sorted(superpixel_scores.items(), key=lambda item: item[1]))
 
     # select top-N superpixels
     selected_superpixels, max_items = select_superpixels(total_superpixels, superpixel_scores, forest_superpixels)

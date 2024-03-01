@@ -82,22 +82,23 @@ def acquire_labels(i, lambda_1, probability, entropy, cod, transformation_agg, s
     pim.convert('RGB').save(f'./users/{student_id}/output/lambda_search/L1.{lambda_1}_L2.{lambda_2}_B1.{beta_1}_B2.{beta_2}_P.{probability}_E.{entropy}_C.{cod}_TA.{transformation_agg}_SA.{superpixel_agg}/R{TEST_REGION}_labels_{i}.png')
     pim.convert('RGB').save(f'./users/{student_id}/output/R{TEST_REGION}_labels.png')
 
-LAMBDA_1_UNCERTAINTY_GRID = [0.1, 0.2, 0.3, 0.4, 0.5]
+LAMBDA_1_UNCERTAINTY_GRID = [0.1, 0.2, 0.3, 0.4]
 
-for lambda_1 in LAMBDA_1_UNCERTAINTY_GRID:
+for TEST_REGION in [1, 2, 3]:
+    print("TEST_REGION: ", TEST_REGION)
+    for lambda_1 in LAMBDA_1_UNCERTAINTY_GRID:
 
-    recommend = 1
-    initial = 1
-    probability = 1
-    entropy = 0
-    cod = 0
-    transformation_agg = "avg"
-    superpixel_agg = "avg"
-    student_id = "saugat"
-    TEST_REGION = 3
-    
-    for TEST_REGION in [1,2,3]:
-        print("TEST_REGION: ", TEST_REGION)
+        recommend = 1
+        initial = 1
+        probability = 0
+        entropy = 1
+        cod = 0
+        transformation_agg = "avg"
+        superpixel_agg = "avg"
+        student_id = "saugat"
+#         TEST_REGION = 3
+
+        
         if os.path.exists(f"./users/{student_id}/output/R{TEST_REGION}_labels.png"):
             os.remove(f"./users/{student_id}/output/R{TEST_REGION}_labels.png")
 
