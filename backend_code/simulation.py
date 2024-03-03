@@ -90,8 +90,8 @@ for TEST_REGION in [1, 2, 3]:
 
         recommend = 1
         initial = 1
-        probability = 0
-        entropy = 1
+        probability = 1
+        entropy = 0
         cod = 0
         transformation_agg = "avg"
         superpixel_agg = "avg"
