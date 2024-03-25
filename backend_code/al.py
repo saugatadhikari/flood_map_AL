@@ -110,53 +110,41 @@ def run_pred_al_probability(model, data_loader, TRANSFORMATION_SCORE):
         pred_rot180_inv = torchvision.transforms.functional.rotate(pred_rot180, angle=180)
         pred_rot270_inv = torchvision.transforms.functional.rotate(pred_rot270, angle=90)
 
-        s1,s2,s3,s4 = pred.shape
-        half_array = torch.tensor(np.full((s1, s2, s3, s4), 0.5)).to(DEVICE)
-        
-        pred_abs = torch.abs(pred - half_array)
-        pred_flipx_abs = torch.abs(pred_flipx_inv - half_array)
-        pred_flipy_abs = torch.abs(pred_flipy_inv - half_array)
-        pred_rot90_abs = torch.abs(pred_rot90_inv - half_array)
-        pred_rot180_abs = torch.abs(pred_rot180_inv - half_array)
-        pred_rot270_abs = torch.abs(pred_rot270_inv - half_array)
+        if config.ENT_VAR:
+            # entropy variance
+            all_logits = [pred, pred_flipx_inv, pred_flipy_inv, pred_rot90_inv, pred_rot180_inv, pred_rot270_inv]
+            variance = compute_entropy(all_logits, TRANSFORMATION_SCORE)
+        else:
+            # offset variance
+            s1,s2,s3,s4 = pred.shape
+            half_array = torch.tensor(np.full((s1, s2, s3, s4), 0.5)).to(DEVICE)
+            
+            pred_abs = torch.abs(pred - half_array)
+            pred_flipx_abs = torch.abs(pred_flipx_inv - half_array)
+            pred_flipy_abs = torch.abs(pred_flipy_inv - half_array)
+            pred_rot90_abs = torch.abs(pred_rot90_inv - half_array)
+            pred_rot180_abs = torch.abs(pred_rot180_inv - half_array)
+            pred_rot270_abs = torch.abs(pred_rot270_inv - half_array)
 
-        # avg_prob = torch.sum(torch.stack([pred, pred_flipx_inv, pred_flipy_inv, pred_rot90_inv, pred_rot180_inv, pred_rot270_inv]), dim=0) / 6
-        # if TRANSFORMATION_SCORE == "AVG":
-        #     final_prob = torch.sum(torch.stack([pred, pred_flipx_abs, pred_flipy_abs, pred_rot90_abs, pred_rot180_abs, pred_rot270_abs]), dim=0) / 6
-        # elif TRANSFORMATION_SCORE == "MIN":
-        #     final_prob = torch.min(torch.stack([pred, pred_flipx_abs, pred_flipy_abs, pred_rot90_abs, pred_rot180_abs, pred_rot270_abs]), dim=0).values
-        # elif TRANSFORMATION_SCORE == "MAX":
-        #     final_prob = torch.max(torch.stack([pred, pred_flipx_abs, pred_flipy_abs, pred_rot90_abs, pred_rot180_abs, pred_rot270_abs]), dim=0).values
+            avg_pred_abs = (pred_abs + pred_flipx_abs + pred_flipy_abs + pred_rot90_abs + pred_rot180_abs + pred_rot270_abs)/6
 
-        avg_pred_abs = (pred_abs + pred_flipx_abs + pred_flipy_abs + pred_rot90_abs + pred_rot180_abs + pred_rot270_abs)/6
+            # compute variance of each patch as compared to average logits
+            var_flipx = torch.pow(torch.abs(avg_pred_abs - pred_flipx_abs), 2)
+            var_flipy = torch.pow(torch.abs(avg_pred_abs - pred_flipy_abs), 2)
+            var_rot90 = torch.pow(torch.abs(avg_pred_abs - pred_rot90_abs), 2)
+            var_rot180 = torch.pow(torch.abs(avg_pred_abs - pred_rot180_abs), 2)
+            var_rot270 = torch.pow(torch.abs(avg_pred_abs - pred_rot270_abs), 2)
 
-        # compute variance of each patch as compared to average logits
-        var_flipx = torch.pow(torch.abs(avg_pred_abs - pred_flipx_abs), 2)
-        var_flipy = torch.pow(torch.abs(avg_pred_abs - pred_flipy_abs), 2)
-        var_rot90 = torch.pow(torch.abs(avg_pred_abs - pred_rot90_abs), 2)
-        var_rot180 = torch.pow(torch.abs(avg_pred_abs - pred_rot180_abs), 2)
-        var_rot270 = torch.pow(torch.abs(avg_pred_abs - pred_rot270_abs), 2)
-
-        # aggregate the variance among 5 transformations
-        if TRANSFORMATION_SCORE == "AVG":
-            prob_variance = torch.sum(torch.stack([var_flipx, var_flipy, var_rot90, var_rot180, var_rot270]), dim=0) / 5
-        elif TRANSFORMATION_SCORE == "MIN":
-            prob_variance = torch.min(torch.stack([var_flipx, var_flipy, var_rot90, var_rot180, var_rot270]), dim=0).values
-        elif TRANSFORMATION_SCORE == "MAX":
-            prob_variance = torch.max(torch.stack([var_flipx, var_flipy, var_rot90, var_rot180, var_rot270]), dim=0).values
-
-        # # Using lambda for variance
-        # if TRANSFORMATION_SCORE == "AVG":
-        #     prob_variance = torch.sum(torch.stack([pred_flipx_abs, pred_flipy_abs, pred_rot90_abs, pred_rot180_abs, pred_rot270_abs]), dim=0) / 5
-        # elif TRANSFORMATION_SCORE == "MIN":
-        #     prob_variance = torch.min(torch.stack([pred_flipx_abs, pred_flipy_abs, pred_rot90_abs, pred_rot180_abs, pred_rot270_abs]), dim=0).values
-        # elif TRANSFORMATION_SCORE == "MAX":
-        #     prob_variance = torch.max(torch.stack([pred_flipx_abs, pred_flipy_abs, pred_rot90_abs, pred_rot180_abs, pred_rot270_abs]), dim=0).values
-        
-
+            # aggregate the variance among 5 transformations
+            if TRANSFORMATION_SCORE == "AVG":
+                variance = torch.sum(torch.stack([var_flipx, var_flipy, var_rot90, var_rot180, var_rot270]), dim=0) / 5
+            elif TRANSFORMATION_SCORE == "MIN":
+                variance = torch.min(torch.stack([var_flipx, var_flipy, var_rot90, var_rot180, var_rot270]), dim=0).values
+            elif TRANSFORMATION_SCORE == "MAX":
+                variance = torch.max(torch.stack([var_flipx, var_flipy, var_rot90, var_rot180, var_rot270]), dim=0).values
             
         pred_np = pred.detach().cpu().numpy()
-        variance_np = prob_variance.detach().cpu().numpy()
+        variance_np = variance.detach().cpu().numpy()
 
         for idx in range(rgb_data.shape[0]):
             pred_patches_dict[filename[idx]] = pred_np[idx, :, :, :]
@@ -211,31 +199,45 @@ def run_pred_al_entropy(model, data_loader, TRANSFORMATION_SCORE):
         pred_rot180_inv = torchvision.transforms.functional.rotate(pred_rot180, angle=180)
         pred_rot270_inv = torchvision.transforms.functional.rotate(pred_rot270, angle=90)
 
-        all_logits = [pred, pred_flipx_inv, pred_flipy_inv, pred_rot90_inv, pred_rot180_inv, pred_rot270_inv]
-        # transformed_logits = [pred_flipx_inv, pred_flipy_inv, pred_rot90_inv, pred_rot180_inv, pred_rot270_inv]
+        if config.ENT_VAR:
+            # entropy variance
+            all_logits = [pred, pred_flipx_inv, pred_flipy_inv, pred_rot90_inv, pred_rot180_inv, pred_rot270_inv]
+            variance = compute_entropy(all_logits, TRANSFORMATION_SCORE)
+        else:
+            # offset variance
+            s1,s2,s3,s4 = pred.shape
+            half_array = torch.tensor(np.full((s1, s2, s3, s4), 0.5)).to(DEVICE)
+            
+            pred_abs = torch.abs(pred - half_array)
+            pred_flipx_abs = torch.abs(pred_flipx_inv - half_array)
+            pred_flipy_abs = torch.abs(pred_flipy_inv - half_array)
+            pred_rot90_abs = torch.abs(pred_rot90_inv - half_array)
+            pred_rot180_abs = torch.abs(pred_rot180_inv - half_array)
+            pred_rot270_abs = torch.abs(pred_rot270_inv - half_array)
 
-        entropy_variance = compute_entropy(all_logits, TRANSFORMATION_SCORE)
-        # entropy_variance = compute_entropy(transformed_logits, TRANSFORMATION_SCORE)
+            avg_pred_abs = (pred_abs + pred_flipx_abs + pred_flipy_abs + pred_rot90_abs + pred_rot180_abs + pred_rot270_abs)/6
 
-        # pred_clone = torch.clone(pred)
+            # compute variance of each patch as compared to average logits
+            var_flipx = torch.pow(torch.abs(avg_pred_abs - pred_flipx_abs), 2)
+            var_flipy = torch.pow(torch.abs(avg_pred_abs - pred_flipy_abs), 2)
+            var_rot90 = torch.pow(torch.abs(avg_pred_abs - pred_rot90_abs), 2)
+            var_rot180 = torch.pow(torch.abs(avg_pred_abs - pred_rot180_abs), 2)
+            var_rot270 = torch.pow(torch.abs(avg_pred_abs - pred_rot270_abs), 2)
 
-        # log_out =-1* torch.log(pred_clone)
-        # log_out[log_out != log_out] = 0
-        # log_out[log_out == float("Inf")] = 0
-        # log_out[log_out == -float("Inf")] = 0
-        # log_out[log_out == float("-Inf")] = 0
-
-        # entropy_orig = log_out * pred_clone
-
-        # final_entropy = entropy_orig + config.LAMBDA_1 * entropy_variance
-        # print("entropy shape: ", final_entropy.shape)
+            # aggregate the variance among 5 transformations
+            if TRANSFORMATION_SCORE == "AVG":
+                variance = torch.sum(torch.stack([var_flipx, var_flipy, var_rot90, var_rot180, var_rot270]), dim=0) / 5
+            elif TRANSFORMATION_SCORE == "MIN":
+                variance = torch.min(torch.stack([var_flipx, var_flipy, var_rot90, var_rot180, var_rot270]), dim=0).values
+            elif TRANSFORMATION_SCORE == "MAX":
+                variance = torch.max(torch.stack([var_flipx, var_flipy, var_rot90, var_rot180, var_rot270]), dim=0).values
 
         pred_np = pred.detach().cpu().numpy()
-        entropy_variance_np = entropy_variance.detach().cpu().numpy()
+        variance_np = variance.detach().cpu().numpy()
  
         for idx in range(rgb_data.shape[0]):
             pred_patches_dict[filename[idx]] = pred_np[idx, :, :, :]
-            variance_patches_dict[filename[idx]] = entropy_variance_np[idx, :, :, :]
+            variance_patches_dict[filename[idx]] = variance_np[idx, :, :, :]
 
     return pred_patches_dict, variance_patches_dict
 
