@@ -4,8 +4,10 @@ Accuracy         : 41.97
 
 Dry Precision    : 19.48
 Dry Recall       : 34.43
-Dry F1 score     : 24.88
+Dry F1 score     : 0.14
+Dry IOU          : 24.88
 
 Flood Precision  : 63.87
 Flood Recall     : 44.89
 Flood F1 score   : 52.72
+Flood IOU        : 0.36

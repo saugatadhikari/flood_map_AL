@@ -914,38 +914,38 @@ function BFS(x: number, y: number, direction: string, color: string, flood: bool
         y = stack.pop()!
         x = stack.pop()!
 
-        const pixelIndex = y * regionDimensions[0] + x
-        const pixelVal = gtJson[pixelIndex]
+        // const pixelIndex = y * regionDimensions[0] + x
+        // const pixelVal = gtJson[pixelIndex]
 
-        var flood_pixel = false;
-        var dry_pixel = false;
-        var unk_pixel = false;
+        // var flood_pixel = false;
+        // var dry_pixel = false;
+        // var unk_pixel = false;
 
-        if (pixelVal == 1){
-            flood_pixel = true;
-        }
-        else if (pixelVal == -1){
-            dry_pixel = true;
-        }
-        else{
-            unk_pixel = true;
-        }
+        // if (pixelVal == 1){
+        //     flood_pixel = true;
+        // }
+        // else if (pixelVal == -1){
+        //     dry_pixel = true;
+        // }
+        // else{
+        //     unk_pixel = true;
+        // }
         
-        var stop_label_propagation;
-        if (pixelVal == 0){
-            stop_label_propagation = true;
-        }
-        else if (pixelVal != 0){
-            if (flood == true && flood_pixel == true){
-                stop_label_propagation = false;
-            }
-            else if (flood == false && dry_pixel == true){
-                stop_label_propagation = false;
-            }
-            else{
-                stop_label_propagation = true;
-            }
-        }
+        // var stop_label_propagation;
+        // if (pixelVal == 0){
+        //     stop_label_propagation = true;
+        // }
+        // else if (pixelVal != 0){
+        //     if (flood == true && flood_pixel == true){
+        //         stop_label_propagation = false;
+        //     }
+        //     else if (flood == false && dry_pixel == true){
+        //         stop_label_propagation = false;
+        //     }
+        //     else{
+        //         stop_label_propagation = true;
+        //     }
+        // }
 
         if (
             x < regionBounds[0] ||
@@ -955,9 +955,9 @@ function BFS(x: number, y: number, direction: string, color: string, flood: bool
         ) {
             continue
         }
-        else if (stop_label_propagation == true){
-            continue
-        }
+        // else if (stop_label_propagation == true){
+        //     continue
+        // }
 
 
         let [fillX, fillY] = fillFunction[_direction](x, y)
@@ -1426,32 +1426,33 @@ const onKeyPress = (event: KeyboardEvent) => {
         let [x, y_orig] = performRayCasting()
 
         let y: any = regionDimensions[1] - 1 - y_orig // y is height, x is width
+        BFSHandler(x, y, params.flood, params.clear)
 
-        const pixelIndex = y * regionDimensions[0] + x
-        const pixelVal = gtJson[pixelIndex]
+        // const pixelIndex = y * regionDimensions[0] + x
+        // const pixelVal = gtJson[pixelIndex]
 
-        var flood_pixel = false;
-        var dry_pixel = false;
-        var unk_pixel = false;
+        // var flood_pixel = false;
+        // var dry_pixel = false;
+        // var unk_pixel = false;
 
-        if (pixelVal == 1){
-            flood_pixel = true;
-        }
-        else if (pixelVal == -1){
-            dry_pixel = true;
-        }
-        else{
-            unk_pixel = true;
-        }
+        // if (pixelVal == 1){
+        //     flood_pixel = true;
+        // }
+        // else if (pixelVal == -1){
+        //     dry_pixel = true;
+        // }
+        // else{
+        //     unk_pixel = true;
+        // }
         
-        if (pixelVal != 0){
-            if (params.flood == true && flood_pixel == true){
-                BFSHandler(x, y, params.flood, params.clear)
-            }
-            else if (params.flood == false && dry_pixel == true){
-                BFSHandler(x, y, params.flood, params.clear)
-            }
-        }
+        // if (pixelVal != 0){
+        //     if (params.flood == true && flood_pixel == true){
+        //         BFSHandler(x, y, params.flood, params.clear)
+        //     }
+        //     else if (params.flood == false && dry_pixel == true){
+        //         BFSHandler(x, y, params.flood, params.clear)
+        //     }
+        // }
         
 
         // const pixelIndex = y * regionDimensions[0] + x

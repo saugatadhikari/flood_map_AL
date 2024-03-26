@@ -125,6 +125,15 @@ About TOD Code:
 
  02/14
 1. A(orig [offset/entropy]) + B(variance by transformation) + C(COD): DONE
-2. Use almost annotated data to simulate the experiment and get the best values for lambdas: In progress
-3. Do this for loss function beta-1 and beta-2 as well: TODO
+2. Use almost annotated data to simulate the experiment and get the best values for lambdas: DONE
+3. Do this for loss function beta-1 and beta-2 as well: DONE
 4. Try features before sigmoid as well for COD: TODO
+
+
+
+TODO:
+1. Add IOU in metrics: DONE
+2. Save % of labelled pixels in each AL cycle; compare # labels vs f1-score
+3. Save time taken to retrain the model in each cycle: add it to JSON file 
+4. Use configuration from URL
+5. Remove min for transform-level agg and max for pixel-level agg

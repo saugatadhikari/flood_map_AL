@@ -52,6 +52,8 @@ class Evaluator():
         # print("Dry Recall: ", self.DRY_RECALL)
         self.DRY_FSCORE = ((2*self.DRY_PRECISION*self.DRY_RECALL)/(self.DRY_PRECISION+self.DRY_RECALL))
         # print("Dry F1 score: ", self.DRY_FSCORE)
+        self.DRY_IOU = (TP_0)/(TP_0+FP_0+FN_0)
+        # print("Dry IoU: ", self.DRY_IOU)
         
         # print("\n")
         
@@ -64,24 +66,30 @@ class Evaluator():
         # print("Flood Recall: ", self.FLOOD_RECALL)
         self.FLOOD_FSCORE = ((2*self.FLOOD_PRECISION*self.FLOOD_RECALL)/(self.FLOOD_PRECISION+self.FLOOD_RECALL))
         # print("Flood F1 score: ", self.FLOOD_FSCORE)
+        self.FLOOD_IOU = (TP_1)/(TP_1+FP_1+FN_1)
+        # print("Flood IoU: ", self.FLOOD_IOU)
 
         metrices = {
             "Accuracy": float("{:.2f}".format(self.DRY_ACC)),
             "Dry Precision": float("{:.2f}".format(self.DRY_PRECISION)),
             "Dry Recall": float("{:.2f}".format(self.DRY_RECALL)),
             "Dry F1 score": float("{:.2f}".format(self.DRY_FSCORE)),
+            "Dry IOU": float("{:.2f}".format(self.DRY_IOU)),
             "Flood Precision": float("{:.2f}".format(self.FLOOD_PRECISION)),
             "Flood Recall": float("{:.2f}".format(self.FLOOD_RECALL)),
             "Flood F1 score": float("{:.2f}".format(self.FLOOD_FSCORE)),
+            "Flood IOU": float("{:.2f}".format(self.FLOOD_IOU)),
         }
 
         dry_acc = float("{:.2f}".format(self.DRY_ACC))
         dry_precision = float("{:.2f}".format(self.DRY_PRECISION))
         dry_recall = float("{:.2f}".format(self.DRY_RECALL))
         dry_f1 = float("{:.2f}".format(self.DRY_FSCORE))
+        dry_iou = float("{:.2f}".format(self.DRY_IOU))
         flood_precision = float("{:.2f}".format(self.FLOOD_PRECISION))
         flood_recall = float("{:.2f}".format(self.FLOOD_RECALL))
         flood_f1 = float("{:.2f}".format(self.FLOOD_FSCORE))
+        flood_iou = float("{:.2f}".format(self.FLOOD_IOU))
 
         metrices_str = "   Metrics (Unit: %)    "
         metrices_str += "\n\n"
@@ -91,13 +99,17 @@ class Evaluator():
         metrices_str += "\n"
         metrices_str += f"Dry Recall       : {dry_recall}"
         metrices_str += "\n"
-        metrices_str += f"Dry F1 score     : {dry_f1}"
+        metrices_str += f"Dry F1 score     : {dry_iou}"
+        metrices_str += "\n"
+        metrices_str += f"Dry IOU          : {dry_f1}"
         metrices_str += "\n\n"
         metrices_str += f"Flood Precision  : {flood_precision}"
         metrices_str += "\n"
         metrices_str += f"Flood Recall     : {flood_recall}"
         metrices_str += "\n"
         metrices_str += f"Flood F1 score   : {flood_f1}"
+        metrices_str += "\n"
+        metrices_str += f"Flood IOU        : {flood_iou}"
 
         return metrices_str
 
@@ -134,6 +146,12 @@ class Evaluator():
         else:
             return 0.0
     
+    @property
+    def f_iou(self):
+        if self.FLOOD_IOU > 0:
+            return self.FLOOD_IOU
+        else:
+            return 0.0
     
     
     
@@ -164,5 +182,12 @@ class Evaluator():
     def d_fscore(self):
         if self.DRY_FSCORE > 0:
             return self.DRY_FSCORE
+        else:
+            return 0.0
+
+    @property
+    def d_iou(self):
+        if self.DRY_IOU > 0:
+            return self.DRY_IOU
         else:
             return 0.0

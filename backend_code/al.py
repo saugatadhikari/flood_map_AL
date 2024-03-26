@@ -129,6 +129,7 @@ def run_pred_al_probability(model, data_loader, TRANSFORMATION_SCORE):
             avg_pred_abs = (pred_abs + pred_flipx_abs + pred_flipy_abs + pred_rot90_abs + pred_rot180_abs + pred_rot270_abs)/6
 
             # compute variance of each patch as compared to average logits
+            var_orig = torch.pow(torch.abs(avg_pred_abs - pred_abs), 2)
             var_flipx = torch.pow(torch.abs(avg_pred_abs - pred_flipx_abs), 2)
             var_flipy = torch.pow(torch.abs(avg_pred_abs - pred_flipy_abs), 2)
             var_rot90 = torch.pow(torch.abs(avg_pred_abs - pred_rot90_abs), 2)
@@ -137,11 +138,11 @@ def run_pred_al_probability(model, data_loader, TRANSFORMATION_SCORE):
 
             # aggregate the variance among 5 transformations
             if TRANSFORMATION_SCORE == "AVG":
-                variance = torch.sum(torch.stack([var_flipx, var_flipy, var_rot90, var_rot180, var_rot270]), dim=0) / 5
+                variance = torch.sum(torch.stack([var_orig, var_flipx, var_flipy, var_rot90, var_rot180, var_rot270]), dim=0) / 6
             elif TRANSFORMATION_SCORE == "MIN":
-                variance = torch.min(torch.stack([var_flipx, var_flipy, var_rot90, var_rot180, var_rot270]), dim=0).values
+                variance = torch.min(torch.stack([var_orig, var_flipx, var_flipy, var_rot90, var_rot180, var_rot270]), dim=0).values
             elif TRANSFORMATION_SCORE == "MAX":
-                variance = torch.max(torch.stack([var_flipx, var_flipy, var_rot90, var_rot180, var_rot270]), dim=0).values
+                variance = torch.max(torch.stack([var_orig, var_flipx, var_flipy, var_rot90, var_rot180, var_rot270]), dim=0).values
             
         pred_np = pred.detach().cpu().numpy()
         variance_np = variance.detach().cpu().numpy()
@@ -346,6 +347,7 @@ def compute_entropy(outputs, TRANSFORMATION_SCORE):
     avg_entropy = (entropy_list[0] + entropy_list[1] + entropy_list[2] + entropy_list[3] + entropy_list[4] + entropy_list[5])/6
 
     # compute variance of each patch as compared to average logits
+    var_orig = torch.pow(torch.abs(avg_entropy - entropy_list[0]), 2)
     var_flipx = torch.pow(torch.abs(avg_entropy - entropy_list[1]), 2)
     var_flipy = torch.pow(torch.abs(avg_entropy - entropy_list[2]), 2)
     var_rot90 = torch.pow(torch.abs(avg_entropy - entropy_list[3]), 2)
@@ -354,11 +356,11 @@ def compute_entropy(outputs, TRANSFORMATION_SCORE):
 
     # aggregate the variance among 5 transformations
     if TRANSFORMATION_SCORE == "AVG":
-        entropy_variance = torch.sum(torch.stack([var_flipx, var_flipy, var_rot90, var_rot180, var_rot270]), dim=0) / 5
+        entropy_variance = torch.sum(torch.stack([var_orig, var_flipx, var_flipy, var_rot90, var_rot180, var_rot270]), dim=0) / 6
     elif TRANSFORMATION_SCORE == "MIN":
-        entropy_variance = torch.min(torch.stack([var_flipx, var_flipy, var_rot90, var_rot180, var_rot270]), dim=0).values
+        entropy_variance = torch.min(torch.stack([var_orig, var_flipx, var_flipy, var_rot90, var_rot180, var_rot270]), dim=0).values
     elif TRANSFORMATION_SCORE == "MAX":
-        entropy_variance = torch.max(torch.stack([var_flipx, var_flipy, var_rot90, var_rot180, var_rot270]), dim=0).values
+        entropy_variance = torch.max(torch.stack([var_orig, var_flipx, var_flipy, var_rot90, var_rot180, var_rot270]), dim=0).values
     
     return entropy_variance
         
@@ -956,6 +958,7 @@ def recommend_superpixels(TEST_REGION, entropy, probability, cod, transformation
         print(f"Resuming from epoch {resume_epoch}")
 
     checkpoint_backbone = torch.load(model_path, map_location=torch.device(DEVICE))
+    print("Pre-trained epoch: ", checkpoint_backbone['epoch'])
     models['backbone'].load_state_dict(checkpoint_backbone['model'])
 
     if al_cycle > 0:
@@ -1124,7 +1127,7 @@ def recommend_superpixels(TEST_REGION, entropy, probability, cod, transformation
     with open(file_path_lambda_search, "w") as fp:
         fp.write(metrices)
 
-    file_path = f"./users/{student_id}/output/Region_{TEST_REGION}_Metrics.txt"
+    file_path = f"./users/{student_id}/output/Region_{TEST_REGION}_Metrics_C{al_cycle}.txt"
     with open(file_path, "w") as fp:
         fp.write(metrices)
     
