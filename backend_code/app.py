@@ -5,6 +5,7 @@ from PIL import Image
 import gzip
 import numpy as np
 from flask_cors import CORS
+import time
 
 # from vtkmodules.all import (
 #     vtkTIFFReader,
@@ -127,8 +128,21 @@ def superpixel():
 
     metrices = {}
     if int(recommend):
+        start_time = time.time()
+        
         metrices = recommend_superpixels(TEST_REGION, entropy, probability, cod, transformation_agg, superpixel_agg, student_id, al_cycle)
-    
+
+        end_time = time.time()
+        elapsed_time = (end_time - start_time)/60
+        elapsed_time = float("{:.2f}".format(elapsed_time))
+
+        metrices += "\n"
+        metrices += f"Elapsed Time: {elapsed_time} minutes"
+
+        file_path = f"./users/{student_id}/output/Region_{TEST_REGION}_Metrics_C{al_cycle}.txt"
+        with open(file_path, "w") as fp:
+            fp.write(metrices)
+
     payload = make_response(send_file(f'./users/{student_id}/output/R{TEST_REGION}_superpixels_test.png'))
     payload.headers.add('Access-Control-Allow-Origin', '*')
 
@@ -190,12 +204,23 @@ def metrics_json():
 
     print("student_id: ", student_id)
 
-    file_path = f"./users/{student_id}/output/Region_{TEST_REGION}_Metrics.txt"
+    try:
+        with open(f"./users/{student_id}/al_cycles/R{TEST_REGION}.txt", 'r') as file:
+            content = file.read()
+            al_cycle = int(content) - 1
+    except FileNotFoundError:
+        al_cycle = 0
+
+    if al_cycle < 0:
+        al_cycle = 0
+
+    file_path = f"./users/{student_id}/output/Region_{TEST_REGION}_Metrics_C{al_cycle}.txt"
 
     metrices = {}
     with open(file_path, 'r') as json_file:
         # metrices = json.load(json_file)
-        metrices = json_file.read()
+        lines = json_file.readlines()
+        metrices = " ".join(lines[:-2])
 
     payload = make_response(jsonify(metrices), 200)
     payload.headers.add('Access-Control-Allow-Origin', '*')
@@ -205,6 +230,7 @@ def metrics_json():
 
 @app.route('/retrain', methods=['POST', 'GET'])
 def retrain():
+    start_time = time.time()
     TEST_REGION = int(request.args.get('testRegion', 1))
     student_id = request.args.get('taskId').strip()
     file = request.files.get('image')

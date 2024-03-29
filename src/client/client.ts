@@ -91,6 +91,15 @@ stats_mb.showPanel(2)
 stats_mb.domElement.style.cssText = 'position:absolute;top:250px;right:50px;'
 document.body.appendChild(stats_mb.domElement)
 
+const urlParams = new URLSearchParams(window.location.search);
+const useParams = urlParams.get('param');
+const acq_func = urlParams.get('func');
+const use_cod = urlParams.get('cod');
+const transform_agg = urlParams.get('t_agg');
+const pixel_agg = urlParams.get('p_agg');
+
+console.log(useParams, acq_func, transform_agg, pixel_agg);
+
 let eventFunction: { [key: string]: any } = {
     BFS: (x: number, y: number, flood: boolean, clear: boolean) => BFSHandler(x, y, flood, clear),
     brush: (x: number, y: number, flood: boolean, clear: boolean) =>
@@ -378,21 +387,21 @@ const superpixelFolder = gui.addFolder('Pixel-level Agg')
 //         viewFolder.updateDisplay()
 //     })
 //     .name('Annotate Dry Area')
-if (metaState.flat == 0) {
-    viewFolder
-        .add(params, 'dimension')
-        .onChange(() => {
-            scene.remove(scene.children[0])
-            if (params.dimension) {
-                uniforms.z.value = 500
-                scene.add(meshes[3])
-            } else {
-                uniforms.z.value = 0
-                scene.add(meshes[2])
-            }
-        })
-        .name('3D View')
-}
+// if (metaState.flat == 0) {
+//     viewFolder
+//         .add(params, 'dimension')
+//         .onChange(() => {
+//             scene.remove(scene.children[0])
+//             if (params.dimension) {
+//                 uniforms.z.value = 500
+//                 scene.add(meshes[3])
+//             } else {
+//                 uniforms.z.value = 0
+//                 scene.add(meshes[2])
+//             }
+//         })
+//         .name('3D View')
+// }
 
 viewFolder
     .add(params, 'annotation')
@@ -622,13 +631,13 @@ const cod = scFolder.add(checkboxValues, 'cod').name('COD');
 
 // Add checkboxes to the folder
 const avgTransformation = transformationFolder.add(checkboxValuesTransformation, 'avgTransformation').name('Average');
-const minTransformation = transformationFolder.add(checkboxValuesTransformation, 'minTransformation').name('Minimum');
+// const minTransformation = transformationFolder.add(checkboxValuesTransformation, 'minTransformation').name('Minimum');
 const maxTransformation = transformationFolder.add(checkboxValuesTransformation, 'maxTransformation').name('Maximum');
 
 // Add checkboxes to the folder
 const avgSuperpixel = superpixelFolder.add(checkboxValuesSuperpixel, 'avgSuperpixel').name('Average');
 const minSuperpixel = superpixelFolder.add(checkboxValuesSuperpixel, 'minSuperpixel').name('Minimum');
-const maxSuperpixel = superpixelFolder.add(checkboxValuesSuperpixel, 'maxSuperpixel').name('Maximum');
+// const maxSuperpixel = superpixelFolder.add(checkboxValuesSuperpixel, 'maxSuperpixel').name('Maximum');
 
 // uniforms.probability.value = +checkboxValues['probability'];
 // uniforms.entropy.value = +checkboxValues['entropy'];
@@ -636,6 +645,16 @@ const maxSuperpixel = superpixelFolder.add(checkboxValuesSuperpixel, 'maxSuperpi
 
 // Set up the mutual exclusivity behavior
 probability.onChange(function (value) {
+    if (useParams == '1'){
+        if (acq_func == 'prob'){
+            console.log("acq_func: ", 'prob');
+            value = 1;
+        }
+        else{
+            value = 0;
+        }
+    } 
+      
     if (value) {
         entropy.setValue(false);
         params.probability = true;
@@ -643,17 +662,27 @@ probability.onChange(function (value) {
         params.entropy = false;
         uniforms.entropy.value = 0;
 
-        maxSuperpixel.domElement.style.opacity = "0.1"
-        maxTransformation.domElement.style.opacity = "0.1";
+        // maxSuperpixel.domElement.style.opacity = "0.1"
+        // maxTransformation.domElement.style.opacity = "0.1";
     }
     else{
-        maxSuperpixel.domElement.style.opacity = "1";
+        // maxSuperpixel.domElement.style.opacity = "1";
         maxTransformation.domElement.style.opacity = "1";
     }
     
 });
 
 entropy.onChange(function (value) {
+    if (useParams == '1'){
+        if (acq_func == 'ent'){
+            console.log("acq_func: ", 'ent');
+            value = 1;
+        }
+        else{
+            value = 0;
+        }
+    } 
+
     if (value) {
         probability.setValue(false);
         params.entropy = true;
@@ -661,15 +690,25 @@ entropy.onChange(function (value) {
         params.probability = false;
         uniforms.probability.value = 0;
 
-        minSuperpixel.domElement.style.opacity = "0.1"
-        minTransformation.domElement.style.opacity = "0.1";
+        // minSuperpixel.domElement.style.opacity = "0.1"
+        // minTransformation.domElement.style.opacity = "0.1";
     } else {
         minSuperpixel.domElement.style.opacity = "1";
-        minTransformation.domElement.style.opacity = "1";
+        // minTransformation.domElement.style.opacity = "1";
     }
 });
 
 cod.onChange(function (value) {
+    if (useParams == '1'){
+        if (use_cod == '1'){
+            console.log("cod: ", 'cod');
+            value = 1;
+        }
+        else{
+            value = 0;
+        }
+    } 
+    
     if (value) {
         params.cod = true;
         uniforms.cod.value = 1;
@@ -680,12 +719,22 @@ scFolder.open()
 
 // Set up the mutual exclusivity behavior
 avgTransformation.onChange(function (value) {
+    if (useParams == '1'){
+        if (transform_agg == 'avg'){
+            console.log("transform_agg: ", 'avg');
+            value = 1;
+        }
+        else{
+            value = 0;
+        }
+    }
+
     if (value) {
-        minTransformation.setValue(false);
+        // minTransformation.setValue(false);
         params.avgTransformation = true;
         uniforms.avgTransformation.value = 1;
-        params.minTransformation = false;
-        uniforms.minTransformation.value = 0;
+        // params.minTransformation = false;
+        // uniforms.minTransformation.value = 0;
 
         maxTransformation.setValue(false);
         params.maxTransformation = false;
@@ -694,47 +743,69 @@ avgTransformation.onChange(function (value) {
     
 });
 
-minTransformation.onChange(function (value) {
-    if (value) {
-        if (params.probability == true){
-            avgTransformation.setValue(false);
-            params.minTransformation = true;
-            uniforms.minTransformation.value = 1;
-            params.avgTransformation = false;
-            uniforms.avgTransformation.value = 0;
+// minTransformation.onChange(function (value) {
+//     if (value) {
+//         if (params.probability == true){
+//             avgTransformation.setValue(false);
+//             params.minTransformation = true;
+//             uniforms.minTransformation.value = 1;
+//             params.avgTransformation = false;
+//             uniforms.avgTransformation.value = 0;
 
-            maxTransformation.setValue(false);
-            params.maxTransformation = false;
-            uniforms.maxTransformation.value = 0;
-        }
-        else if (params.entropy == true){
-            minTransformation.setValue(false);
-            params.minTransformation = false;
-            uniforms.minTransformation.value = 0;
-        }
+//             maxTransformation.setValue(false);
+//             params.maxTransformation = false;
+//             uniforms.maxTransformation.value = 0;
+//         }
+//         else if (params.entropy == true){
+//             minTransformation.setValue(false);
+//             params.minTransformation = false;
+//             uniforms.minTransformation.value = 0;
+//         }
         
-    }
-});
+//     }
+// });
 
 maxTransformation.onChange(function (value) {
+    if (useParams == '1'){
+        if (transform_agg == 'max'){
+            console.log("transform_agg: ", 'max');
+            value = 1;
+        }
+        else{
+            value = 0;
+        }
+    }
+
     if (value) {
-        if (params.entropy == true){
-            avgTransformation.setValue(false);
-            minTransformation.setValue(false);
-            params.avgTransformation = false;
-            uniforms.avgTransformation.value = 0;
+        // if (params.entropy == true){
+        //     avgTransformation.setValue(false);
+        //     // minTransformation.setValue(false);
+        //     params.avgTransformation = false;
+        //     uniforms.avgTransformation.value = 0;
 
-            params.maxTransformation = true;
-            uniforms.maxTransformation.value = 1;
+        //     params.maxTransformation = true;
+        //     uniforms.maxTransformation.value = 1;
 
-            params.minTransformation = false;
-            uniforms.minTransformation.value = 0;
-        }
-        else if (params.probability == true){
-            maxTransformation.setValue(false);
-            params.maxTransformation = false;
-            uniforms.maxTransformation.value = 0;
-        }
+        //     // params.minTransformation = false;
+        //     // uniforms.minTransformation.value = 0;
+        // }
+        // else if (params.probability == true){
+        //     maxTransformation.setValue(false);
+        //     params.maxTransformation = false;
+        //     uniforms.maxTransformation.value = 0;
+        // }
+
+        avgTransformation.setValue(false);
+        // minTransformation.setValue(false);
+        params.avgTransformation = false;
+        uniforms.avgTransformation.value = 0;
+
+        params.maxTransformation = true;
+        uniforms.maxTransformation.value = 1;
+
+        // params.minTransformation = false;
+        // uniforms.minTransformation.value = 0;
+
     }
 });
 
@@ -743,6 +814,16 @@ transformationFolder.open()
 
 // Set up the mutual exclusivity behavior
 avgSuperpixel.onChange(function (value) {
+    if (useParams == '1'){
+        if (pixel_agg == 'avg'){
+            console.log("pixel_agg: ", 'avg');
+            value = 1;
+        }
+        else{
+            value = 0;
+        }
+    }
+
     if (value) {
         minSuperpixel.setValue(false);
         params.avgSuperpixel = true;
@@ -750,56 +831,77 @@ avgSuperpixel.onChange(function (value) {
         params.minSuperpixel = false;
         uniforms.minSuperpixel.value = 0;
 
-        maxSuperpixel.setValue(false);
-        params.maxSuperpixel = false;
-        uniforms.maxSuperpixel.value = 0;
+        // maxSuperpixel.setValue(false);
+        // params.maxSuperpixel = false;
+        // uniforms.maxSuperpixel.value = 0;
     }
     
 });
 
 minSuperpixel.onChange(function (value) {
-    if (value) {
-        if (params.probability == true){
-            avgSuperpixel.setValue(false);
-            params.minSuperpixel = true;
-            uniforms.minSuperpixel.value = 1;
-            params.avgSuperpixel = false;
-            uniforms.avgSuperpixel.value = 0;
+    if (useParams == '1'){
+        if (pixel_agg == 'min'){
+            console.log("pixel_agg: ", 'min');
+            value = 1;
+        }
+        else{
+            value = 0;
+        }
+    }
 
-            maxSuperpixel.setValue(false);
-            params.maxSuperpixel = false;
-            uniforms.maxSuperpixel.value = 0;
-        }
-        else if (params.entropy == true){
-            minSuperpixel.setValue(false);
-            params.minSuperpixel = false;
-            uniforms.minSuperpixel.value = 0;
-        }
+    if (value) {
+        // if (params.probability == true){
+        //     avgSuperpixel.setValue(false);
+        //     params.minSuperpixel = true;
+        //     uniforms.minSuperpixel.value = 1;
+        //     params.avgSuperpixel = false;
+        //     uniforms.avgSuperpixel.value = 0;
+
+        //     // maxSuperpixel.setValue(false);
+        //     // params.maxSuperpixel = false;
+        //     // uniforms.maxSuperpixel.value = 0;
+        // }
+        // else if (params.entropy == true){
+        //     minSuperpixel.setValue(false);
+        //     params.minSuperpixel = false;
+        //     uniforms.minSuperpixel.value = 0;
+        // }
+
+        avgSuperpixel.setValue(false);
+        params.minSuperpixel = true;
+        uniforms.minSuperpixel.value = 1;
+        params.avgSuperpixel = false;
+        uniforms.avgSuperpixel.value = 0;
+
+        // maxSuperpixel.setValue(false);
+        // params.maxSuperpixel = false;
+        // uniforms.maxSuperpixel.value = 0;
+        
     }
 });
 
-maxSuperpixel.onChange(function (value) {
-    if (value) {
-        if (params.entropy == true){
-            avgSuperpixel.setValue(false);
-            minSuperpixel.setValue(false);
+// maxSuperpixel.onChange(function (value) {
+//     if (value) {
+//         if (params.entropy == true){
+//             avgSuperpixel.setValue(false);
+//             minSuperpixel.setValue(false);
 
-            params.maxSuperpixel = true;
-            uniforms.maxSuperpixel.value = 1;
+//             params.maxSuperpixel = true;
+//             uniforms.maxSuperpixel.value = 1;
             
-            params.minSuperpixel = false;
-            uniforms.minSuperpixel.value = 0;
+//             params.minSuperpixel = false;
+//             uniforms.minSuperpixel.value = 0;
 
-            params.avgSuperpixel = false;
-            uniforms.avgSuperpixel.value = 0;
-        }
-        else if (params.probability == true){
-            maxSuperpixel.setValue(false);
-            params.maxSuperpixel = false;
-            uniforms.maxSuperpixel.value = 0;
-        }
-    }
-});
+//             params.avgSuperpixel = false;
+//             uniforms.avgSuperpixel.value = 0;
+//         }
+//         else if (params.probability == true){
+//             maxSuperpixel.setValue(false);
+//             params.maxSuperpixel = false;
+//             uniforms.maxSuperpixel.value = 0;
+//         }
+//     }
+// });
 
 superpixelFolder.open()
 
@@ -1385,8 +1487,11 @@ function displayCrossMark(x: any, y: any) {
 let [lastX, lastY] = [0, 0]
 const onKeyPress = (event: KeyboardEvent) => {
     if (event.key == 'z') {
+        console.log("Z pressed")
         var eve
+        console.log("ZZ pressed")
         for (var i = gameState.length - 1; i > 0; i--) {
+            console.log("Z here")
             if (!gameState[i]['mouseEvent'].undone && !gameState[i]['mouseEvent'].clear) {
                 sessionData.numberofUndo++
                 gameState[i]['mouseEvent'].undone = true

@@ -85,6 +85,7 @@ def run_pred_al_probability(model, data_loader, TRANSFORMATION_SCORE):
 
         ## Get model prediction
         logits_, pred = model(rgb_data, norm_elev_data)
+        pred = torch.nn.functional.softmax(pred, dim = 1)
 
         rgb_data_flipx = torch.flip(rgb_data, dims=(-1,))
         rgb_data_flipy = torchvision.transforms.functional.vflip(rgb_data)
@@ -113,18 +114,24 @@ def run_pred_al_probability(model, data_loader, TRANSFORMATION_SCORE):
         if config.ENT_VAR:
             # entropy variance
             all_logits = [pred, pred_flipx_inv, pred_flipy_inv, pred_rot90_inv, pred_rot180_inv, pred_rot270_inv]
-            variance = compute_entropy(all_logits, TRANSFORMATION_SCORE)
+            variance = compute_entropy_variance(all_logits, TRANSFORMATION_SCORE)
         else:
             # offset variance
             s1,s2,s3,s4 = pred.shape
             half_array = torch.tensor(np.full((s1, s2, s3, s4), 0.5)).to(DEVICE)
             
             pred_abs = torch.abs(pred - half_array)
+            pred_abs = torch.sum(pred_abs, dim=1)/2
             pred_flipx_abs = torch.abs(pred_flipx_inv - half_array)
+            pred_flipx_abs = torch.sum(pred_flipx_abs, dim=1)/2
             pred_flipy_abs = torch.abs(pred_flipy_inv - half_array)
+            pred_flipy_abs = torch.sum(pred_flipy_abs, dim=1)/2
             pred_rot90_abs = torch.abs(pred_rot90_inv - half_array)
+            pred_rot90_abs = torch.sum(pred_rot90_abs, dim=1)/2
             pred_rot180_abs = torch.abs(pred_rot180_inv - half_array)
+            pred_rot180_abs = torch.sum(pred_rot180_abs, dim=1)/2
             pred_rot270_abs = torch.abs(pred_rot270_inv - half_array)
+            pred_rot270_abs = torch.sum(pred_rot270_abs, dim=1)/2
 
             avg_pred_abs = (pred_abs + pred_flipx_abs + pred_flipy_abs + pred_rot90_abs + pred_rot180_abs + pred_rot270_abs)/6
 
@@ -149,7 +156,7 @@ def run_pred_al_probability(model, data_loader, TRANSFORMATION_SCORE):
 
         for idx in range(rgb_data.shape[0]):
             pred_patches_dict[filename[idx]] = pred_np[idx, :, :, :]
-            variance_patches_dict[filename[idx]] = variance_np[idx, :, :, :]
+            variance_patches_dict[filename[idx]] = variance_np[idx, :, :]
         
     return pred_patches_dict, variance_patches_dict
 
@@ -175,6 +182,7 @@ def run_pred_al_entropy(model, data_loader, TRANSFORMATION_SCORE):
 
         ## Get model prediction
         logits_, pred = model(rgb_data, norm_elev_data)
+        pred = torch.nn.functional.softmax(pred, dim = 1)
 
         rgb_data_flipx = torch.flip(rgb_data, dims=(-1,))
         rgb_data_flipy = torchvision.transforms.functional.vflip(rgb_data)
@@ -203,18 +211,26 @@ def run_pred_al_entropy(model, data_loader, TRANSFORMATION_SCORE):
         if config.ENT_VAR:
             # entropy variance
             all_logits = [pred, pred_flipx_inv, pred_flipy_inv, pred_rot90_inv, pred_rot180_inv, pred_rot270_inv]
-            variance = compute_entropy(all_logits, TRANSFORMATION_SCORE)
+            variance = compute_entropy_variance(all_logits, TRANSFORMATION_SCORE)
         else:
             # offset variance
             s1,s2,s3,s4 = pred.shape
             half_array = torch.tensor(np.full((s1, s2, s3, s4), 0.5)).to(DEVICE)
             
             pred_abs = torch.abs(pred - half_array)
+            print("abs: ", pred_abs)
+            pred_abs = torch.sum(pred_abs, dim=1)/2
+            print("abst: ", pred_abs)
             pred_flipx_abs = torch.abs(pred_flipx_inv - half_array)
+            pred_flipx_abs = torch.sum(pred_flipx_abs, dim=1)/2
             pred_flipy_abs = torch.abs(pred_flipy_inv - half_array)
+            pred_flipy_abs = torch.sum(pred_flipy_abs, dim=1)/2
             pred_rot90_abs = torch.abs(pred_rot90_inv - half_array)
+            pred_rot90_abs = torch.sum(pred_rot90_abs, dim=1)/2
             pred_rot180_abs = torch.abs(pred_rot180_inv - half_array)
+            pred_rot180_abs = torch.sum(pred_rot180_abs, dim=1)/2
             pred_rot270_abs = torch.abs(pred_rot270_inv - half_array)
+            pred_rot270_abs = torch.sum(pred_rot270_abs, dim=1)/2
 
             avg_pred_abs = (pred_abs + pred_flipx_abs + pred_flipy_abs + pred_rot90_abs + pred_rot180_abs + pred_rot270_abs)/6
 
@@ -238,7 +254,7 @@ def run_pred_al_entropy(model, data_loader, TRANSFORMATION_SCORE):
  
         for idx in range(rgb_data.shape[0]):
             pred_patches_dict[filename[idx]] = pred_np[idx, :, :, :]
-            variance_patches_dict[filename[idx]] = variance_np[idx, :, :, :]
+            variance_patches_dict[filename[idx]] = variance_np[idx, :, :]
 
     return pred_patches_dict, variance_patches_dict
 
@@ -246,7 +262,7 @@ def run_pred_al_cod(models, data_loader):
     
     ## Model gets set to evaluation mode
     pred_patches_dict = dict()
-    final_pred_patches_dict = dict()
+    cod_loss_patches_dict = dict()
     
     for data_dict in tqdm(data_loader):
         
@@ -263,12 +279,17 @@ def run_pred_al_cod(models, data_loader):
         logits_backbone, pred_backbone = models['backbone'](rgb_data, norm_elev_data)
         logits_cod, pred_cod = models['cod'](rgb_data, norm_elev_data)
 
+        pred_backbone = torch.nn.functional.softmax(pred_backbone, dim = 1)
+        pred_cod = torch.nn.functional.softmax(pred_cod, dim = 1)
+
         # print("logits shape: ", logits_backbone.shape)
 
         if config.USE_LOGITS:
             cod_loss = (logits_backbone - logits_cod).pow(2)
         else:
             cod_loss = (pred_backbone - pred_cod).pow(2)
+        
+        cod_loss = torch.sum(cod_loss, dim=1)/2
 
         cod_loss_np = cod_loss.detach().cpu().numpy()
 
@@ -276,10 +297,10 @@ def run_pred_al_cod(models, data_loader):
         
         ## Save Image and RGB patch
         for idx in range(rgb_data.shape[0]):
-            final_pred_patches_dict[filename[idx]] = cod_loss_np[idx, :, :, :]
+            cod_loss_patches_dict[filename[idx]] = cod_loss_np[idx, :, :]
             pred_patches_dict[filename[idx]] = pred_np[idx, :, :, :]
 
-    return pred_patches_dict, final_pred_patches_dict
+    return pred_patches_dict, cod_loss_patches_dict
 
 
 # def compute_entropy(outputs, TRANSFORMATION_SCORE):
@@ -327,7 +348,7 @@ def run_pred_al_cod(models, data_loader):
     # return numpy_ent_total 
 
 
-def compute_entropy(outputs, TRANSFORMATION_SCORE):
+def compute_entropy_variance(outputs, TRANSFORMATION_SCORE):
 
     counter = 0
     entropy_list = []
@@ -342,6 +363,7 @@ def compute_entropy(outputs, TRANSFORMATION_SCORE):
         log_out[log_out == float("-Inf")] = 0
 
         entropy_computed = log_out * prob_out
+        entropy_computed = torch.sum(entropy_computed, dim=1)
         entropy_list.append(entropy_computed)
 
     avg_entropy = (entropy_list[0] + entropy_list[1] + entropy_list[2] + entropy_list[3] + entropy_list[4] + entropy_list[5])/6
@@ -527,7 +549,7 @@ def stitch_patches_GT_labels(pred_patches_dict, TEST_REGION):
     
     return label_stitched, pred_stitched
 
-def stitch_patches(pred_patches_dict, TEST_REGION, LOSS_SC=False):
+def stitch_patches(pred_patches_dict, TEST_REGION, var=False):
     cropped_data_path = f"./data_al/Region_{TEST_REGION}_TEST/cropped_data_val_test_al"
     y_max, x_max = find_patch_meta(pred_patches_dict)
     
@@ -537,7 +559,8 @@ def stitch_patches(pred_patches_dict, TEST_REGION, LOSS_SC=False):
             #print(dict_key)
         
             pred_patch = pred_patches_dict[dict_key]
-            pred_patch = np.transpose(pred_patch, (1, 2, 0))
+            if not var:
+                pred_patch = np.transpose(pred_patch, (1, 2, 0))
 
             rgb_patch = np.load(os.path.join(cropped_data_path, dict_key))[:, :, :3]
 
@@ -566,7 +589,7 @@ def stitch_patches(pred_patches_dict, TEST_REGION, LOSS_SC=False):
     
     return rgb_stitched, pred_stitched
 
-def center_crop(stictched_data, original_height, original_width, image = False):
+def center_crop(stictched_data, original_height, original_width, image = False, var=False):
     # dict_key = f"Region_{TEST_REGION}_Features7Channel.npy"
     
 #     if image:
@@ -587,8 +610,10 @@ def center_crop(stictched_data, original_height, original_width, image = False):
 #     print("height_diff: ", height_diff)
 #     print("width_diff: ", width_diff)
     
-    
-    cropped = stictched_data[height_diff//2:current_height-height_diff//2, width_diff//2: current_width-width_diff//2, :]
+    if var:
+        cropped = stictched_data[height_diff//2:current_height-height_diff//2, width_diff//2: current_width-width_diff//2]
+    else:
+        cropped = stictched_data[height_diff//2:current_height-height_diff//2, width_diff//2: current_width-width_diff//2, :]
     
     return cropped
 
@@ -604,15 +629,20 @@ def get_superpixel_scores(superpixels_group, logits, forest_prob, SUPERPIXEL_SCO
             forest_score = forest_prob[row][col]
 
             # Vote down the superpixel based on forest model probability score
-            if config.PROBABILITY and config.TAKE_PRODUCT:
+            # if config.PROBABILITY and config.TAKE_PRODUCT:
+            #     prob_score *= forest_score
+            # elif config.PROBABILITY:
+            #     prob_score += forest_score
+            # elif config.ENTROPY and config.TAKE_PRODUCT:
+            #     prob_score *= (-math.log(forest_score))
+            # elif config.ENTROPY:
+            #     prob_score += forest_score
+            # elif config.COD:
+            #     prob_score += forest_score
+
+            if config.TAKE_PRODUCT:
                 prob_score *= forest_score
-            elif config.PROBABILITY:
-                prob_score += forest_score
-            elif config.ENTROPY and config.TAKE_PRODUCT:
-                prob_score *= (-math.log(forest_score))
-            elif config.ENTROPY:
-                prob_score += forest_score
-            elif config.COD:
+            else:
                 prob_score += forest_score
 
             total_score += prob_score
@@ -845,23 +875,16 @@ def recommend_superpixels(TEST_REGION, entropy, probability, cod, transformation
 
     config.COD = cod
 
-    if not os.path.exists(f"./users/{student_id}/output/Region_{TEST_REGION}_TEST/L1.{config.LAMBDA_1}_L2.{config.LAMBDA_2}_B1.{config.BETA_1}_B2.{config.BETA_2}_P.{config.PROBABILITY}_E.{config.ENTROPY}_C.{config.COD}_TA.{config.TRANSFORMATION_SCORE}_SA.{config.SUPERPIXEL_SCORE}"):
-        os.mkdir(f"./users/{student_id}/output/Region_{TEST_REGION}_TEST/L1.{config.LAMBDA_1}_L2.{config.LAMBDA_2}_B1.{config.BETA_1}_B2.{config.BETA_2}_P.{config.PROBABILITY}_E.{config.ENTROPY}_C.{config.COD}_TA.{config.TRANSFORMATION_SCORE}_SA.{config.SUPERPIXEL_SCORE}")
-
     # print("ent", "prob", "cod")
     # print(config.ENTROPY, config.PROBABILITY, config.COD)
 
     if transformation_agg.strip().lower() == 'avg':
         config.TRANSFORMATION_SCORE = 'AVG'
-    elif config.ENTROPY:
-        config.TRANSFORMATION_SCORE = 'MAX'
     else:
-        config.TRANSFORMATION_SCORE = 'MIN'
+        config.TRANSFORMATION_SCORE = 'MAX'
 
     if superpixel_agg.strip().lower() == 'avg':
         config.SUPERPIXEL_SCORE = 'AVG'
-    elif config.ENTROPY:
-        config.SUPERPIXEL_SCORE = 'MAX'
     else:
         config.SUPERPIXEL_SCORE = 'MIN'
 
@@ -1001,9 +1024,9 @@ def recommend_superpixels(TEST_REGION, entropy, probability, cod, transformation
         # pred_orig_offset = np.sum(pred_orig_offset, axis=-1)/2
 
         # stitch variance patches --> B
-        _, variance_stitched = stitch_patches(variance_patches_dict, TEST_REGION)
-        variance_unpadded = center_crop(variance_stitched, height, width, image = False)
-        variance_unpadded = variance_unpadded[:,:,0]
+        _, variance_stitched = stitch_patches(variance_patches_dict, TEST_REGION, var=True)
+        variance_unpadded = center_crop(variance_stitched, height, width, image = False, var=True)
+        # variance_unpadded = variance_unpadded[:,:,0]
         # variance_unpadded = np.sum(variance_unpadded, axis=-1)/2
 
         # print("offset: ", np.min(pred_orig_offset), np.max(pred_orig_offset))
@@ -1028,12 +1051,12 @@ def recommend_superpixels(TEST_REGION, entropy, probability, cod, transformation
         log_out[log_out == float("-Inf")] = 0
 
         entropy_orig = log_out * pred_orig_clone
-        entropy_orig = entropy_orig[:,:,0]
+        entropy_orig = np.sum(entropy_orig, axis=-1)
 
         # stitch variance patches --> B
-        _, variance_stitched = stitch_patches(variance_patches_dict, TEST_REGION)
-        variance_unpadded = center_crop(variance_stitched, height, width, image = False)
-        variance_unpadded = variance_unpadded[:,:,0]
+        _, variance_stitched = stitch_patches(variance_patches_dict, TEST_REGION, var=True)
+        variance_unpadded = center_crop(variance_stitched, height, width, image = False, var=True)
+        # variance_unpadded = variance_unpadded[:,:,0]
         # variance_unpadded = np.sum(variance_unpadded, axis=-1)/2
 
         # print("entropy: ", np.min(entropy_orig), np.max(entropy_orig))
@@ -1052,9 +1075,9 @@ def recommend_superpixels(TEST_REGION, entropy, probability, cod, transformation
         # print(pred_orig.shape)
 
         # get COD --> C
-        _, cod_loss = stitch_patches(cod_loss_patches_dict, TEST_REGION)
-        cod_loss_unpadded = center_crop(cod_loss, height, width, image = False)
-        cod_loss_unpadded = cod_loss_unpadded[:,:,0]
+        _, cod_loss = stitch_patches(cod_loss_patches_dict, TEST_REGION, var=True)
+        cod_loss_unpadded = center_crop(cod_loss, height, width, image = False, var=True)
+        # cod_loss_unpadded = cod_loss_unpadded[:,:,0]
         # cod_loss_unpadded = np.sum(cod_loss_unpadded, axis=-1)/2
 
         # print("COD loss: ", np.min(cod_loss_unpadded), np.max(cod_loss_unpadded))
@@ -1068,14 +1091,14 @@ def recommend_superpixels(TEST_REGION, entropy, probability, cod, transformation
             # print("A1 + B + C: ", np.min(pred_offset_agg), np.max(pred_offset_agg))
         elif config.ENTROPY:
             # compute the weighted sum to 2 uncertainty scores (entropy and COD); higher entropy means recommend so we add (1 - pred_unpadded_cod)
-            entropy_agg = -entropy_orig - config.LAMBDA_1 * variance_unpadded - config.LAMBDA_2 * cod_loss_unpadded # for ENT: 1 means uncertain; for COD: 1 means uncertain # A+B+C
+            entropy_agg = -entropy_orig - config.LAMBDA_1_A2 * variance_unpadded - config.LAMBDA_2_A2 * cod_loss_unpadded # for ENT: 1 means uncertain; for COD: 1 means uncertain # A+B+C
 
             # print(np.min(entropy_agg), np.max(entropy_agg))
     else: # A(original) + B(variance)
         if config.PROBABILITY: # A1 + B
             pred_offset_agg = pred_orig_offset - config.LAMBDA_1 * variance_unpadded
         elif config.ENTROPY: # A2 + B
-            entropy_agg = -entropy_orig - config.LAMBDA_1 * variance_unpadded
+            entropy_agg = -entropy_orig - config.LAMBDA_1_A2 * variance_unpadded
 
     
     if config.PROBABILITY:
@@ -1110,22 +1133,28 @@ def recommend_superpixels(TEST_REGION, entropy, probability, cod, transformation
     # select top-N superpixels
     selected_superpixels, max_items = select_superpixels(total_superpixels, superpixel_scores, forest_superpixels)
 
+    np.save(f"./users/{student_id}/output/Region_{TEST_REGION}_pred.npy", pred_orig)
 
     ## Stitch pred patches back together
     # _, pred_stitched_2 = stitch_patches(pred_patches_dict, TEST_REGION)
     # pred_unpadded_2 = center_crop(pred_stitched_2, height, width, image = False)
     pred_final = 1 - np.argmax(pred_orig, axis=-1)
-    np.save(f"./users/{student_id}/output/Region_1_pred.npy", pred_final)
+    # np.save(f"./users/{student_id}/output/Region_{TEST_REGION}_pred.npy", pred_final)
     pred_final = np.where(pred_final == 0, -1, pred_final)
 
     gt_labels = np.load(f"./data_al/repo/groundTruths/Region_{TEST_REGION}_GT_Labels.npy")
     metrices = elev_eval.run_eval(pred_final, gt_labels)
 
-    # print(metrices)
+    updated_labels = ann_to_labels(f'./users/{student_id}/output/R{TEST_REGION}_labels.png', TEST_REGION)
 
-    file_path_lambda_search = f"./users/{student_id}/output/Region_{TEST_REGION}_TEST/L1.{config.LAMBDA_1}_L2.{config.LAMBDA_2}_B1.{config.BETA_1}_B2.{config.BETA_2}_P.{config.PROBABILITY}_E.{config.ENTROPY}_C.{config.COD}_TA.{config.TRANSFORMATION_SCORE}_SA.{config.SUPERPIXEL_SCORE}/Region_{TEST_REGION}_Metrics.txt"
-    with open(file_path_lambda_search, "w") as fp:
-        fp.write(metrices)
+    annotated_pixels = np.where(updated_labels != 0, 1, 0)
+    annotated_pixels_percent = (np.sum(annotated_pixels) / (updated_labels.shape[0] * updated_labels.shape[1])) * 100
+    print("Ann pixels percent: ", annotated_pixels_percent)
+
+    annotated_pixels_percent = float("{:.2f}".format(annotated_pixels_percent))
+
+    metrices += "\n"
+    metrices += f"Annotated Pixels: {annotated_pixels_percent} %"
 
     file_path = f"./users/{student_id}/output/Region_{TEST_REGION}_Metrics_C{al_cycle}.txt"
     with open(file_path, "w") as fp:
@@ -1172,8 +1201,6 @@ def recommend_superpixels(TEST_REGION, entropy, probability, cod, transformation
     pim = Image.fromarray(pred_labels)
     pim.convert('RGB').save(f'./users/{student_id}/output/R{TEST_REGION}_pred_test.png')
 
-    # pim.convert('RGB').save(f'./users/{student_id}/output/lambda_search/L1.{config.LAMBDA_1}_P.{config.PROBABILITY}_E.{config.ENTROPY}_C.{config.COD}_TA.{config.TRANSFORMATION_SCORE}_SA.{config.SUPERPIXEL_SCORE}/R{TEST_REGION}_pred_test_{al_cycle}.png')
-
     return metrices
 
 
@@ -1197,6 +1224,7 @@ def ann_to_labels(png_image, TEST_REGION):
 
 
 def train(TEST_REGION, entropy, probability, cod, transformation_agg, superpixel_agg, student_id, al_cycle, al_iters):
+    start_time = time.time()
 
     student_id = student_id.strip()
 
@@ -1210,9 +1238,6 @@ def train(TEST_REGION, entropy, probability, cod, transformation_agg, superpixel
 
     if not os.path.exists(f"./users/{student_id}/output/Region_{TEST_REGION}_TEST"):
         os.mkdir(f"./users/{student_id}/output/Region_{TEST_REGION}_TEST")
-
-    if not os.path.exists(f"./users/{student_id}/output/Region_{TEST_REGION}_TEST/L1.{config.LAMBDA_1}_L2.{config.LAMBDA_2}_B1.{config.BETA_1}_B2.{config.BETA_2}_P.{config.PROBABILITY}_E.{config.ENTROPY}_C.{config.COD}_TA.{config.TRANSFORMATION_SCORE}_SA.{config.SUPERPIXEL_SCORE}"):
-        os.mkdir(f"./users/{student_id}/output/Region_{TEST_REGION}_TEST/L1.{config.LAMBDA_1}_L2.{config.LAMBDA_2}_B1.{config.BETA_1}_B2.{config.BETA_2}_P.{config.PROBABILITY}_E.{config.ENTROPY}_C.{config.COD}_TA.{config.TRANSFORMATION_SCORE}_SA.{config.SUPERPIXEL_SCORE}") 
 
     if not os.path.exists(f"./users/{student_id}/saved_models_al"):
         os.mkdir(f"./users/{student_id}/saved_models_al")
@@ -1236,28 +1261,17 @@ def train(TEST_REGION, entropy, probability, cod, transformation_agg, superpixel
 
     if transformation_agg.strip().lower() == 'avg':
         config.TRANSFORMATION_SCORE = 'AVG'
-    elif transformation_agg.strip().lower() == 'max':
+    else:
         config.TRANSFORMATION_SCORE = 'MAX'
-    elif transformation_agg.strip().lower() == 'min':
-        config.TRANSFORMATION_SCORE = 'MIN'
 
     if superpixel_agg.strip().lower() == 'avg':
         config.SUPERPIXEL_SCORE = 'AVG'
-    elif superpixel_agg.strip().lower() == 'max':
-        config.SUPERPIXEL_SCORE = 'MAX'
-    elif superpixel_agg.strip().lower() == 'min':
+    else:
         config.SUPERPIXEL_SCORE = 'MIN'
 
     # fallback if user choose both to be 0
     # if (entropy == 0 and probability == 0):
     #     config.PROBABILITY = 1
-
-
-    # recommend_superpixels(TEST_REGION, config.ENTROPY, config.PROBABILITY, transformation_agg, superpixel_agg, student_id, al_cycle, updated_labels=None)
-
-    # return
-    # time.sleep(5)
-    # return # TODO: remove after test
 
 
     # model = EvaNet(config.BATCH_SIZE, config.IN_CHANNEL, config.N_CLASSES, ultrasmall = True).to(DEVICE)
@@ -1411,7 +1425,7 @@ def train(TEST_REGION, entropy, probability, cod, transformation_agg, superpixel
             else:
                 ema_loss = F.mse_loss(pred_backbone * unknown_mask, pred_ema * unknown_mask) # unknown mask prevents known pixels from being included in the loss computation
 
-            total_loss = supervised_loss + config.BETA_1 * self_consistency_loss + config.BETA_2 * ema_loss # TODO: these hyperparams should be tuned
+            total_loss = supervised_loss + config.BETA_1 * self_consistency_loss + config.BETA_2 * ema_loss
 
             # backpropagate the total loss
             # optimizers['original'].zero_grad()
@@ -1458,7 +1472,16 @@ def train(TEST_REGION, entropy, probability, cod, transformation_agg, superpixel
                 'optimizer': optimizers['backbone'].state_dict()}, 
                 f"./users/{student_id}/saved_models_al/Region_{TEST_REGION}_TEST/saved_model_AL_cycle_{al_cycle + 1}.ckpt")
     
-    
+    end_time = time.time()
+    elapsed_time = (end_time - start_time)/60
+    elapsed_time = float("{:.2f}".format(elapsed_time))
+
+    metrices += "\n"
+    metrices += f"Elapsed Time: {elapsed_time} minutes"
+
+    file_path = f"./users/{student_id}/output/Region_{TEST_REGION}_Metrics_C{al_cycle}.txt"
+    with open(file_path, "w") as fp:
+        fp.write(metrices)
     
     return metrices
 

@@ -400,12 +400,25 @@ function downloadSession(event: Event) {
         imageName = 'annotatedImg_' + sessionData.name + '.png'
     }
 
-    var url = canvas.toDataURL()
+    var url = annCanvas.toDataURL()
     var index = url.indexOf(',')
     if (index !== -1) {
         url = url.substring(index + 1, url.length)
     }
     zip.file(imageName, url, { base64: true })
+
+    let imageNamePred = 'AL_prediction.png'
+    if (sessionData.name) {
+        imageNamePred = 'AL_prediction_' + sessionData.name + '.png'
+    }
+
+    var urlPred = predCanvas.toDataURL()
+    var indexPred = urlPred.indexOf(',')
+    if (indexPred !== -1) {
+        urlPred = urlPred.substring(indexPred + 1, urlPred.length)
+    }
+    zip.file(imageNamePred, urlPred, { base64: true })
+
     zip.generateAsync({
         type: 'base64',
     }).then(function (content) {

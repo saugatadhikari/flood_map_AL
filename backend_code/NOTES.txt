@@ -133,7 +133,8 @@ About TOD Code:
 
 TODO:
 1. Add IOU in metrics: DONE
-2. Save % of labelled pixels in each AL cycle; compare # labels vs f1-score
-3. Save time taken to retrain the model in each cycle: add it to JSON file 
-4. Use configuration from URL
-5. Remove min for transform-level agg and max for pixel-level agg
+2. Save % of labelled pixels in each AL cycle; compare # labels vs f1-score: DONE
+3. Save time taken to retrain the model in each cycle: add it to Metrics file: DONE
+4. Remove min for transform-level agg and max for pixel-level agg: DONE
+5. Fix button UI: DONE
+6. Use configuration from URL: DONE

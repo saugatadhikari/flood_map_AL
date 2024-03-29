@@ -171,3 +171,4 @@ cython_debug/
 
 backend_code/users/*
 *.DS_Store*
+backend_code/NOTES.txt
