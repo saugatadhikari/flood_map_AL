@@ -907,6 +907,9 @@ def recommend_superpixels(TEST_REGION, entropy, probability, cod, transformation
     # Iterate through the NumPy array to group pixels
     height = superpixels.shape[0]
     width = superpixels.shape[1]
+
+    config.HEIGHT = height
+    config.WIDTH = width
     # print(height, width)
     for i in range(height):
         for j in range(width):
@@ -1206,21 +1209,26 @@ def recommend_superpixels(TEST_REGION, entropy, probability, cod, transformation
 
 def ann_to_labels(png_image, TEST_REGION):
     ann = cv2.imread(png_image)
-    ann = cv2.cvtColor(ann, cv2.COLOR_BGR2RGB)
 
-    flood = ann[:, :, 0] == 255
-    dry = ann[:, :, 2] == 255
+    if ann:
+        ann = cv2.cvtColor(ann, cv2.COLOR_BGR2RGB)
 
-    flood_arr = np.where(flood, 1, 0)
-    dry_arr = np.where(dry, -1, 0)
+        flood = ann[:, :, 0] == 255
+        dry = ann[:, :, 2] == 255
 
-    final_arr = flood_arr + dry_arr
+        flood_arr = np.where(flood, 1, 0)
+        dry_arr = np.where(dry, -1, 0)
 
-    # forest = np.load(f"./data_al/forest/Region_{TEST_REGION}_forest.npy") # TODO
-    # accept_mask = np.where(forest == 0, 1, 0)
-    # final_arr = final_arr * accept_mask
-    
-    return final_arr
+        final_arr = flood_arr + dry_arr
+
+        # forest = np.load(f"./data_al/forest/Region_{TEST_REGION}_forest.npy") # TODO
+        # accept_mask = np.where(forest == 0, 1, 0)
+        # final_arr = final_arr * accept_mask
+        
+        return final_arr
+    else:
+        final_arr = np.zeros((config.HEIGHT, config.WIDTH))
+        return final_arr
 
 
 def train(TEST_REGION, entropy, probability, cod, transformation_agg, superpixel_agg, student_id, al_cycle, al_iters):
