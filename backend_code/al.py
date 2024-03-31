@@ -1210,7 +1210,7 @@ def recommend_superpixels(TEST_REGION, entropy, probability, cod, transformation
 def ann_to_labels(png_image, TEST_REGION):
     ann = cv2.imread(png_image)
 
-    if ann:
+    if ann is not None:
         ann = cv2.cvtColor(ann, cv2.COLOR_BGR2RGB)
 
         flood = ann[:, :, 0] == 255
