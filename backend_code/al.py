@@ -1208,27 +1208,27 @@ def recommend_superpixels(TEST_REGION, entropy, probability, cod, transformation
 
 
 def ann_to_labels(png_image, TEST_REGION):
-    ann = cv2.imread(png_image)
-
-    if ann is not None:
-        ann = cv2.cvtColor(ann, cv2.COLOR_BGR2RGB)
-
-        flood = ann[:, :, 0] == 255
-        dry = ann[:, :, 2] == 255
-
-        flood_arr = np.where(flood, 1, 0)
-        dry_arr = np.where(dry, -1, 0)
-
-        final_arr = flood_arr + dry_arr
-
-        # forest = np.load(f"./data_al/forest/Region_{TEST_REGION}_forest.npy") # TODO
-        # accept_mask = np.where(forest == 0, 1, 0)
-        # final_arr = final_arr * accept_mask
-        
-        return final_arr
-    else:
+    if not os.path.exists(png_image):
         final_arr = np.zeros((config.HEIGHT, config.WIDTH))
         return final_arr
+    
+    ann = cv2.imread(png_image)
+    ann = cv2.cvtColor(ann, cv2.COLOR_BGR2RGB)
+
+    flood = ann[:, :, 0] == 255
+    dry = ann[:, :, 2] == 255
+
+    flood_arr = np.where(flood, 1, 0)
+    dry_arr = np.where(dry, -1, 0)
+
+    final_arr = flood_arr + dry_arr
+
+    # forest = np.load(f"./data_al/forest/Region_{TEST_REGION}_forest.npy") # TODO
+    # accept_mask = np.where(forest == 0, 1, 0)
+    # final_arr = final_arr * accept_mask
+    
+    return final_arr
+        
 
 
 def train(TEST_REGION, entropy, probability, cod, transformation_agg, superpixel_agg, student_id, al_cycle, al_iters):
