@@ -77,7 +77,7 @@ var confidenceJSON: PixelDict
 
 var metrices: any
 // var forestJson: any
-var gtJson: any
+// var gtJson: any
 
 let host = ''
 if (location.hostname === 'localhost' || location.hostname === '127.0.0.1' || location.hostname === '172.28.200.135') {
@@ -1926,9 +1926,9 @@ var texContext : CanvasRenderingContext2D
                                 // forestJson = await forestResponse.json();
                                 // console.log("forestJson: ", forestJson)
 
-                                const gtResponse = await fetch(`http://127.0.0.1:5000/gt-json?testRegion=${testRegion}`);
-                                gtJson = await gtResponse.json();
-                                console.log("gtJson: ", gtJson)
+                                // const gtResponse = await fetch(`http://127.0.0.1:5000/gt-json?testRegion=${testRegion}`);
+                                // gtJson = await gtResponse.json();
+                                // console.log("gtJson: ", gtJson)
 
                                 const confidenceBuffer = await fetch(`http://127.0.0.1:5000/confidence?testRegion=${testRegion}`).then(response => response.arrayBuffer());
                                 console.log("confidenceBuffer: ", confidenceBuffer)
