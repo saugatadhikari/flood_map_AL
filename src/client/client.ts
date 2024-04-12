@@ -643,6 +643,97 @@ const minSuperpixel = superpixelFolder.add(checkboxValuesSuperpixel, 'minSuperpi
 // uniforms.entropy.value = +checkboxValues['entropy'];
 // uniforms.cod.value = +checkboxValues['cod'];
 
+if (useParams == '1'){
+    if (acq_func == 'prob'){
+        probability.setValue(true);
+        params.probability = true;
+        uniforms.probability.value = 1;
+
+        entropy.setValue(false);
+        params.entropy = false;
+        uniforms.entropy.value = 0;
+
+        if (use_cod == '1'){
+            cod.setValue(true);
+            params.cod = true;
+            uniforms.cod.value = 1;
+        }
+        else{
+            cod.setValue(false);
+            params.cod = false;
+            uniforms.cod.value = 0;
+        }
+    }
+    else if (acq_func == 'ent'){
+        probability.setValue(false);
+        params.probability = false;
+        uniforms.probability.value = 0;
+
+        entropy.setValue(true);
+        params.entropy = true;
+        uniforms.entropy.value = 1;
+
+        if (use_cod == '1'){
+            cod.setValue(true);
+            params.cod = true;
+            uniforms.cod.value = 1;
+        }
+        else{
+            cod.setValue(false);
+            params.cod = false;
+            uniforms.cod.value = 0;
+        }
+    }
+
+    if (transform_agg == 'avg'){
+        avgTransformation.setValue(true);
+        params.avgTransformation = true;
+        uniforms.avgTransformation.value = 1;
+
+        maxTransformation.setValue(false);
+        params.maxTransformation = false;
+        uniforms.maxTransformation.value = 0;
+    }
+    else if (transform_agg == 'max'){
+        avgTransformation.setValue(false);
+        params.avgTransformation = false;
+        uniforms.avgTransformation.value = 0;
+
+        maxTransformation.setValue(true);
+        params.maxTransformation = true;
+        uniforms.maxTransformation.value = 1;
+    }
+
+    if (pixel_agg == 'avg'){
+        avgSuperpixel.setValue(true);
+        params.avgSuperpixel = true;
+        uniforms.avgSuperpixel.value = 1;
+
+        minSuperpixel.setValue(false);
+        params.minSuperpixel = false;
+        uniforms.minSuperpixel.value = 0;
+    }
+    else if (pixel_agg == 'min'){
+        avgSuperpixel.setValue(false);
+        params.avgSuperpixel = false;
+        uniforms.avgSuperpixel.value = 0;
+
+        minSuperpixel.setValue(true);
+        params.minSuperpixel = true;
+        uniforms.minSuperpixel.value = 1;
+    }
+}
+
+console.log("uniforms.probab: ", uniforms.probability.value)
+console.log("uniforms.ent: ", uniforms.entropy.value)
+console.log("uniforms.cod: ", uniforms.cod.value)
+
+console.log("uniforms.avgTransformation: ", uniforms.avgTransformation.value)
+console.log("uniforms.maxTransformation: ", uniforms.maxTransformation.value)
+console.log("uniforms.avgSuperpixel: ", uniforms.avgSuperpixel.value)
+console.log("uniforms.minSuperpixel: ", uniforms.minSuperpixel.value)
+
+
 // Set up the mutual exclusivity behavior
 probability.onChange(function (value) {
     if (useParams == '1'){
