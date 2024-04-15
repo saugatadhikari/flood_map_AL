@@ -875,8 +875,8 @@ def recommend_superpixels(TEST_REGION, entropy, probability, cod, transformation
 
     config.COD = cod
 
-    # print("ent", "prob", "cod")
-    # print(config.ENTROPY, config.PROBABILITY, config.COD)
+    print("ent", "prob", "cod")
+    print(config.ENTROPY, config.PROBABILITY, config.COD)
 
     if transformation_agg.strip().lower() == 'avg':
         config.TRANSFORMATION_SCORE = 'AVG'
@@ -889,7 +889,8 @@ def recommend_superpixels(TEST_REGION, entropy, probability, cod, transformation
         config.SUPERPIXEL_SCORE = 'MIN'
 
     # print(config.ENTROPY, config.PROBABILITY)
-    # print(config.TRANSFORMATION_SCORE, config.SUPERPIXEL_SCORE)
+    print("trans_score", "superpixel_score")
+    print(config.TRANSFORMATION_SCORE, config.SUPERPIXEL_SCORE)
 
 
     start = time.time()
