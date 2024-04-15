@@ -1930,8 +1930,8 @@ var texContext : CanvasRenderingContext2D
                                 // console.log('JSON Data:', jsonData)
                                 
                                 var transformation_agg = 'avg';
-                                if (uniforms.minTransformation.value){
-                                    transformation_agg = 'min'
+                                if (uniforms.maxTransformation.value){
+                                    transformation_agg = 'max'
                                 }
 
                                 var superpixel_agg = 'avg';
@@ -1945,6 +1945,7 @@ var texContext : CanvasRenderingContext2D
                                 const superpixelBuffer = await fetch(`http://127.0.0.1:5000/superpixel?recommend=${1}
                                                                             &entropy=${uniforms.entropy.value}
                                                                             &probability=${uniforms.probability.value}
+                                                                            &cod=${uniforms.cod.value}
                                                                             &transformation_agg=${transformation_agg}
                                                                             &superpixel_agg=${superpixel_agg}
                                                                             &taskId=${student_id}
