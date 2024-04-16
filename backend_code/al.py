@@ -775,14 +775,16 @@ def label_acquisition(selected_superpixels, elev_data, gt_labels, current_labels
     
     return updated_labels
 
-def select_superpixels(total_superpixels, superpixel_scores, forest_superpixels):
+def select_superpixels(total_superpixels, superpixel_scores, forest_superpixels, annotated_superpixels):
     max_items = min(config.NUM_RECOMMEND, total_superpixels)
     select_count = 0
     selected_superpixels = []
     for i, (sid, prob_score) in enumerate(superpixel_scores.items()):
         is_labeled = labeled_superpixels.get(sid, False)
         is_forest = forest_superpixels.get(sid, False)
-        if not is_labeled and not is_forest:
+        is_annotated = annotated_superpixels.get(sid, False)
+        # if not is_labeled and not is_forest and not is_annotated:
+        if not is_forest and not is_annotated:
             if select_count < max_items:
                 selected_superpixels.append(sid)
                 labeled_superpixels[sid] = True
@@ -902,8 +904,11 @@ def recommend_superpixels(TEST_REGION, entropy, probability, cod, transformation
 
     # print(forest_labels.shape)
 
+    updated_labels = ann_to_labels(f'./users/{student_id}/output/R{TEST_REGION}_labels.png', TEST_REGION)
+
     superpixels_group = defaultdict(list)
     forest_superpixels = {}
+    annotated_superpixels = {}
 
     # Iterate through the NumPy array to group pixels
     height = superpixels.shape[0]
@@ -921,15 +926,20 @@ def recommend_superpixels(TEST_REGION, entropy, probability, cod, transformation
         
     for sid, pixels in superpixels_group.items():
         forest_count = 0
+        annotated_count = 0
         total_pixels = len(pixels)
 
         accepted_pixels = []
         for (row, col) in pixels:
             is_forest = forest_labels[row][col]
+            is_annotated = updated_labels[row][col]
             if is_forest:
                 forest_count += 1
             else:
                 accepted_pixels.append((row, col))
+
+            if is_annotated != 0:
+                annotated_count += 1
 
         forest_fraction = forest_count / total_pixels
         if forest_fraction == 1.0:
@@ -940,6 +950,11 @@ def recommend_superpixels(TEST_REGION, entropy, probability, cod, transformation
         if forest_fraction >= 0.8 and forest_fraction < 1.0:
             accepted_pixels_np = np.array(accepted_pixels)
             accepted_sub_pixels[accepted_pixels_np[:, 0], accepted_pixels_np[:, 1]] = 1
+
+        if annotated_count == total_pixels:
+            annotated_superpixels[sid] = True
+        else:
+            annotated_superpixels[sid] = False
 
 
     # print("SUM: ", np.sum(accepted_sub_pixels))
@@ -1135,7 +1150,7 @@ def recommend_superpixels(TEST_REGION, entropy, probability, cod, transformation
         superpixel_scores = dict(sorted(superpixel_scores.items(), key=lambda item: item[1]))
 
     # select top-N superpixels
-    selected_superpixels, max_items = select_superpixels(total_superpixels, superpixel_scores, forest_superpixels)
+    selected_superpixels, max_items = select_superpixels(total_superpixels, superpixel_scores, forest_superpixels, annotated_superpixels)
 
     np.save(f"./users/{student_id}/output/Region_{TEST_REGION}_pred.npy", pred_orig)
 
@@ -1149,7 +1164,7 @@ def recommend_superpixels(TEST_REGION, entropy, probability, cod, transformation
     gt_labels = np.load(f"./data_al/repo/groundTruths/Region_{TEST_REGION}_GT_Labels.npy")
     metrices = elev_eval.run_eval(pred_final, gt_labels)
 
-    updated_labels = ann_to_labels(f'./users/{student_id}/output/R{TEST_REGION}_labels.png', TEST_REGION)
+    # updated_labels = ann_to_labels(f'./users/{student_id}/output/R{TEST_REGION}_labels.png', TEST_REGION)
 
     annotated_pixels = np.where(updated_labels != 0, 1, 0)
     annotated_pixels_percent = (np.sum(annotated_pixels) / (updated_labels.shape[0] * updated_labels.shape[1])) * 100
