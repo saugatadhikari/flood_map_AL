@@ -904,8 +904,6 @@ def recommend_superpixels(TEST_REGION, entropy, probability, cod, transformation
 
     # print(forest_labels.shape)
 
-    updated_labels = ann_to_labels(f'./users/{student_id}/output/R{TEST_REGION}_labels.png', TEST_REGION)
-
     superpixels_group = defaultdict(list)
     forest_superpixels = {}
     annotated_superpixels = {}
@@ -916,6 +914,10 @@ def recommend_superpixels(TEST_REGION, entropy, probability, cod, transformation
 
     config.HEIGHT = height
     config.WIDTH = width
+
+    updated_labels = ann_to_labels(f'./users/{student_id}/output/R{TEST_REGION}_labels.png', TEST_REGION)
+    print("updated_labels: ", updated_labels.shape)
+
     # print(height, width)
     for i in range(height):
         for j in range(width):
