@@ -76,7 +76,7 @@ def pad_data(unpadded_data, is_feature = False):
     return data_padded
 
 
-def crop_data(uncropped_data, filename, is_feature = False):
+def crop_data(uncropped_data, filename, TEST_REGION, is_feature = False):
     
     output_path = "./cropped_al"
     if not os.path.exists(output_path):
@@ -101,9 +101,11 @@ def crop_data(uncropped_data, filename, is_feature = False):
         for x in range(0, horizontal_patches):
             
             if is_feature:
-                new_name = filename[:8]+"_y_"+str(y)+"_x_"+str(x)+"_features.npy"
+                # new_name = filename[:8]+"_y_"+str(y)+"_x_"+str(x)+"_features.npy"
+                new_name = f"Region_{TEST_REGION}" + "_y_"+str(y)+"_x_"+str(x)+"_features.npy"
             else:
-                new_name = filename[:8]+"_y_"+str(y)+"_x_"+str(x)+"_label.npy"
+                # new_name = filename[:8]+"_y_"+str(y)+"_x_"+str(x)+"_label.npy"
+                new_name = f"Region_{TEST_REGION}" + "_y_"+str(y)+"_x_"+str(x)+"_label.npy"
             
             # print("new_name: ", new_name)
             
@@ -169,7 +171,8 @@ def make_data(feature_files, feature_data_path, label_data_path, reg_nums):
             # print("feature_data.shape: ", feature_data.shape)
 
             ## Load label data:
-            label_file = feature_file[:8]+"_GT_Labels.npy"
+            # label_file = feature_file[:8]+"_GT_Labels.npy"
+            label_file = f"Region_{region_num}_GT_Labels.npy"
             # print(label_file)
 
             try:
@@ -199,8 +202,8 @@ def make_data(feature_files, feature_data_path, label_data_path, reg_nums):
             # print("padded_label.shape: ", padded_label.shape)
 
             ###########Crop data to SPATIAL_SIZE pathches######################################
-            cropped_feature = crop_data(padded_feature, feature_file, is_feature = True)
-            cropped_label = crop_data(padded_label, label_file)
+            cropped_feature = crop_data(padded_feature, feature_file, region_num, is_feature = True)
+            cropped_label = crop_data(padded_label, label_file, region_num)
 
 
 def make_dir(TEST_REGION):
@@ -249,7 +252,7 @@ def main(TEST_REGION):
     move_files(TEST_REGION)
 
 if __name__ == "__main__":
-    TEST_REGIONS = [0]
+    TEST_REGIONS = [10]
     
     for TEST_REGION in TEST_REGIONS:
         main(TEST_REGION)
