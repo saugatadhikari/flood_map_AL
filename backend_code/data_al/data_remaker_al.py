@@ -92,7 +92,7 @@ def crop_data(uncropped_data, region_num):
             
             np.save(os.path.join(output_path, new_name), patch)
 
-def crop_data_al(uncropped_data, filename, is_feature = False):
+def crop_data_al(uncropped_data, filename, TEST_REGION, is_feature = False):
     # base_path = "./data_al/"
     # output_path = base_path + "cropped_al"
 
@@ -120,9 +120,11 @@ def crop_data_al(uncropped_data, filename, is_feature = False):
         for x in range(0, horizontal_patches):
             
             if is_feature:
-                new_name = filename[:8]+"_y_"+str(y)+"_x_"+str(x)+"_features.npy"
+                # new_name = filename[:8]+"_y_"+str(y)+"_x_"+str(x)+"_features.npy"
+                new_name = f"Region_{TEST_REGION}" + "_y_"+str(y)+"_x_"+str(x)+"_features.npy"
             else:
-                new_name = filename[:8]+"_y_"+str(y)+"_x_"+str(x)+"_label.npy"
+                # new_name = filename[:8]+"_y_"+str(y)+"_x_"+str(x)+"_label.npy"
+                new_name = f"Region_{TEST_REGION}" + "_y_"+str(y)+"_x_"+str(x)+"_label.npy"
             
             # print("new_name: ", new_name)
             
@@ -146,7 +148,7 @@ def make_data(label_data, region_num):
     padded_label = pad_data(label_data)
 
     ###########Crop data to SPATIAL_SIZE pathches######################################
-    crop_data_al(padded_label, label_file)
+    crop_data_al(padded_label, label_file, region_num)
 
 
 def make_dir(TEST_REGION):
