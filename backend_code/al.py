@@ -1249,7 +1249,7 @@ def ann_to_labels(png_image, TEST_REGION):
         
 
 
-def train(TEST_REGION, entropy, probability, cod, transformation_agg, superpixel_agg, student_id, al_cycle, al_iters):
+def train(TEST_REGION, entropy, probability, cod, transformation_agg, superpixel_agg, student_id, al_cycle, al_iters, use_sc_loss=1, use_cod_loss=1):
     start_time = time.time()
 
     student_id = student_id.strip()
@@ -1298,7 +1298,9 @@ def train(TEST_REGION, entropy, probability, cod, transformation_agg, superpixel
     # fallback if user choose both to be 0
     # if (entropy == 0 and probability == 0):
     #     config.PROBABILITY = 1
-
+        
+    print("USE_SC_LOSS: ", use_sc_loss)
+    print("USE_COD_LOSS: ", use_cod_loss)
 
     # model = EvaNet(config.BATCH_SIZE, config.IN_CHANNEL, config.N_CLASSES, ultrasmall = True).to(DEVICE)
     cod_model = EvaNet(config.BATCH_SIZE, config.IN_CHANNEL, config.N_CLASSES, ultrasmall = True).to(DEVICE)
@@ -1451,7 +1453,12 @@ def train(TEST_REGION, entropy, probability, cod, transformation_agg, superpixel
             else:
                 ema_loss = F.mse_loss(pred_backbone * unknown_mask, pred_ema * unknown_mask) # unknown mask prevents known pixels from being included in the loss computation
 
-            total_loss = supervised_loss + config.BETA_1 * self_consistency_loss + config.BETA_2 * ema_loss
+            if use_sc_loss and use_cod_loss:
+                total_loss = supervised_loss + config.BETA_1 * self_consistency_loss + config.BETA_2 * ema_loss
+            elif use_sc_loss:
+                total_loss = supervised_loss + config.BETA_1 * self_consistency_loss
+            elif use_cod_loss:
+                total_loss = supervised_loss + config.BETA_2 * ema_loss
 
             # backpropagate the total loss
             # optimizers['original'].zero_grad()
