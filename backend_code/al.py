@@ -87,6 +87,8 @@ def run_pred_al_probability(model, data_loader, TRANSFORMATION_SCORE):
         logits_, pred = model(rgb_data, norm_elev_data)
         pred = torch.nn.functional.softmax(pred, dim = 1)
 
+        # print('PRED SHAPE: ', pred.shape) # 4, 2, 128, 128
+
         rgb_data_flipx = torch.flip(rgb_data, dims=(-1,))
         rgb_data_flipy = torchvision.transforms.functional.vflip(rgb_data)
         rgb_data_rot90 = torchvision.transforms.functional.rotate(rgb_data, angle=90)
@@ -111,6 +113,12 @@ def run_pred_al_probability(model, data_loader, TRANSFORMATION_SCORE):
         pred_rot180_inv = torchvision.transforms.functional.rotate(pred_rot180, angle=180)
         pred_rot270_inv = torchvision.transforms.functional.rotate(pred_rot270, angle=90)
 
+        pred_flipx_inv = torch.nn.functional.softmax(pred_flipx_inv, dim = 1)
+        pred_flipy_inv = torch.nn.functional.softmax(pred_flipy_inv, dim = 1)
+        pred_rot90_inv = torch.nn.functional.softmax(pred_rot90_inv, dim = 1)
+        pred_rot180_inv = torch.nn.functional.softmax(pred_rot180_inv, dim = 1)
+        pred_rot270_inv = torch.nn.functional.softmax(pred_rot270_inv, dim = 1)
+
         if config.ENT_VAR:
             # entropy variance
             all_logits = [pred, pred_flipx_inv, pred_flipy_inv, pred_rot90_inv, pred_rot180_inv, pred_rot270_inv]
@@ -120,30 +128,40 @@ def run_pred_al_probability(model, data_loader, TRANSFORMATION_SCORE):
             s1,s2,s3,s4 = pred.shape
             half_array = torch.tensor(np.full((s1, s2, s3, s4), 0.5)).to(DEVICE)
             
-            pred_abs = torch.abs(pred - half_array)
-            pred_abs = torch.sum(pred_abs, dim=1)/2
-            pred_flipx_abs = torch.abs(pred_flipx_inv - half_array)
-            pred_flipx_abs = torch.sum(pred_flipx_abs, dim=1)/2
-            pred_flipy_abs = torch.abs(pred_flipy_inv - half_array)
-            pred_flipy_abs = torch.sum(pred_flipy_abs, dim=1)/2
-            pred_rot90_abs = torch.abs(pred_rot90_inv - half_array)
-            pred_rot90_abs = torch.sum(pred_rot90_abs, dim=1)/2
-            pred_rot180_abs = torch.abs(pred_rot180_inv - half_array)
-            pred_rot180_abs = torch.sum(pred_rot180_abs, dim=1)/2
-            pred_rot270_abs = torch.abs(pred_rot270_inv - half_array)
-            pred_rot270_abs = torch.sum(pred_rot270_abs, dim=1)/2
+            # pred_abs = torch.abs(pred - half_array)
+            # pred_abs = torch.sum(pred_abs, dim=1)/2
+            # pred_flipx_abs = torch.abs(pred_flipx_inv - half_array)
+            # pred_flipx_abs = torch.sum(pred_flipx_abs, dim=1)/2
+            # pred_flipy_abs = torch.abs(pred_flipy_inv - half_array)
+            # pred_flipy_abs = torch.sum(pred_flipy_abs, dim=1)/2
+            # pred_rot90_abs = torch.abs(pred_rot90_inv - half_array)
+            # pred_rot90_abs = torch.sum(pred_rot90_abs, dim=1)/2
+            # pred_rot180_abs = torch.abs(pred_rot180_inv - half_array)
+            # pred_rot180_abs = torch.sum(pred_rot180_abs, dim=1)/2
+            # pred_rot270_abs = torch.abs(pred_rot270_inv - half_array)
+            # pred_rot270_abs = torch.sum(pred_rot270_abs, dim=1)/2
 
-            avg_pred_abs = (pred_abs + pred_flipx_abs + pred_flipy_abs + pred_rot90_abs + pred_rot180_abs + pred_rot270_abs)/6
+            # avg_pred_abs = (pred_abs + pred_flipx_abs + pred_flipy_abs + pred_rot90_abs + pred_rot180_abs + pred_rot270_abs)/6
+
+            # # compute variance of each patch as compared to average logits
+            # var_orig = torch.pow(torch.abs(avg_pred_abs - pred_abs), 2)
+            # var_flipx = torch.pow(torch.abs(avg_pred_abs - pred_flipx_abs), 2)
+            # var_flipy = torch.pow(torch.abs(avg_pred_abs - pred_flipy_abs), 2)
+            # var_rot90 = torch.pow(torch.abs(avg_pred_abs - pred_rot90_abs), 2)
+            # var_rot180 = torch.pow(torch.abs(avg_pred_abs - pred_rot180_abs), 2)
+            # var_rot270 = torch.pow(torch.abs(avg_pred_abs - pred_rot270_abs), 2)
+
+            avg_pred = (pred[:,0,:,:] + pred_flipx_inv[:,0,:,:] + pred_flipy_inv[:,0,:,:] + pred_rot90_inv[:,0,:,:] + pred_rot180_inv[:,0,:,:] + pred_rot270_inv[:,0,:,:])/6
 
             # compute variance of each patch as compared to average logits
-            var_orig = torch.pow(torch.abs(avg_pred_abs - pred_abs), 2)
-            var_flipx = torch.pow(torch.abs(avg_pred_abs - pred_flipx_abs), 2)
-            var_flipy = torch.pow(torch.abs(avg_pred_abs - pred_flipy_abs), 2)
-            var_rot90 = torch.pow(torch.abs(avg_pred_abs - pred_rot90_abs), 2)
-            var_rot180 = torch.pow(torch.abs(avg_pred_abs - pred_rot180_abs), 2)
-            var_rot270 = torch.pow(torch.abs(avg_pred_abs - pred_rot270_abs), 2)
+            var_orig = torch.pow(torch.abs(avg_pred - pred[:,0,:,:]), 2)
+            var_flipx = torch.pow(torch.abs(avg_pred - pred_flipx_inv[:,0,:,:]), 2)
+            var_flipy = torch.pow(torch.abs(avg_pred - pred_flipy_inv[:,0,:,:]), 2)
+            var_rot90 = torch.pow(torch.abs(avg_pred - pred_rot90_inv[:,0,:,:]), 2)
+            var_rot180 = torch.pow(torch.abs(avg_pred - pred_rot180_inv[:,0,:,:]), 2)
+            var_rot270 = torch.pow(torch.abs(avg_pred - pred_rot270_inv[:,0,:,:]), 2)
 
-            # aggregate the variance among 5 transformations
+            # aggregate the variance among 6 transformations
             if TRANSFORMATION_SCORE == "AVG":
                 variance = torch.sum(torch.stack([var_orig, var_flipx, var_flipy, var_rot90, var_rot180, var_rot270]), dim=0) / 6
             elif TRANSFORMATION_SCORE == "MIN":
@@ -208,46 +226,61 @@ def run_pred_al_entropy(model, data_loader, TRANSFORMATION_SCORE):
         pred_rot180_inv = torchvision.transforms.functional.rotate(pred_rot180, angle=180)
         pred_rot270_inv = torchvision.transforms.functional.rotate(pred_rot270, angle=90)
 
+        pred_flipx_inv = torch.nn.functional.softmax(pred_flipx_inv, dim = 1)
+        pred_flipy_inv = torch.nn.functional.softmax(pred_flipy_inv, dim = 1)
+        pred_rot90_inv = torch.nn.functional.softmax(pred_rot90_inv, dim = 1)
+        pred_rot180_inv = torch.nn.functional.softmax(pred_rot180_inv, dim = 1)
+        pred_rot270_inv = torch.nn.functional.softmax(pred_rot270_inv, dim = 1)
+
         if config.ENT_VAR:
             # entropy variance
             all_logits = [pred, pred_flipx_inv, pred_flipy_inv, pred_rot90_inv, pred_rot180_inv, pred_rot270_inv]
             variance = compute_entropy_variance(all_logits, TRANSFORMATION_SCORE)
         else:
-            # offset variance
+            # prob variance
             s1,s2,s3,s4 = pred.shape
             half_array = torch.tensor(np.full((s1, s2, s3, s4), 0.5)).to(DEVICE)
             
-            pred_abs = torch.abs(pred - half_array)
-            print("abs: ", pred_abs)
-            pred_abs = torch.sum(pred_abs, dim=1)/2
-            print("abst: ", pred_abs)
-            pred_flipx_abs = torch.abs(pred_flipx_inv - half_array)
-            pred_flipx_abs = torch.sum(pred_flipx_abs, dim=1)/2
-            pred_flipy_abs = torch.abs(pred_flipy_inv - half_array)
-            pred_flipy_abs = torch.sum(pred_flipy_abs, dim=1)/2
-            pred_rot90_abs = torch.abs(pred_rot90_inv - half_array)
-            pred_rot90_abs = torch.sum(pred_rot90_abs, dim=1)/2
-            pred_rot180_abs = torch.abs(pred_rot180_inv - half_array)
-            pred_rot180_abs = torch.sum(pred_rot180_abs, dim=1)/2
-            pred_rot270_abs = torch.abs(pred_rot270_inv - half_array)
-            pred_rot270_abs = torch.sum(pred_rot270_abs, dim=1)/2
+            # pred_abs = torch.abs(pred - half_array)
+            # pred_abs = torch.sum(pred_abs, dim=1)/2
+            # pred_flipx_abs = torch.abs(pred_flipx_inv - half_array)
+            # pred_flipx_abs = torch.sum(pred_flipx_abs, dim=1)/2
+            # pred_flipy_abs = torch.abs(pred_flipy_inv - half_array)
+            # pred_flipy_abs = torch.sum(pred_flipy_abs, dim=1)/2
+            # pred_rot90_abs = torch.abs(pred_rot90_inv - half_array)
+            # pred_rot90_abs = torch.sum(pred_rot90_abs, dim=1)/2
+            # pred_rot180_abs = torch.abs(pred_rot180_inv - half_array)
+            # pred_rot180_abs = torch.sum(pred_rot180_abs, dim=1)/2
+            # pred_rot270_abs = torch.abs(pred_rot270_inv - half_array)
+            # pred_rot270_abs = torch.sum(pred_rot270_abs, dim=1)/2
 
-            avg_pred_abs = (pred_abs + pred_flipx_abs + pred_flipy_abs + pred_rot90_abs + pred_rot180_abs + pred_rot270_abs)/6
+            # avg_pred_abs = (pred_abs + pred_flipx_abs + pred_flipy_abs + pred_rot90_abs + pred_rot180_abs + pred_rot270_abs)/6
+
+            # # compute variance of each patch as compared to average logits
+            # var_orig = torch.pow(torch.abs(avg_pred_abs - pred_abs), 2)
+            # var_flipx = torch.pow(torch.abs(avg_pred_abs - pred_flipx_abs), 2)
+            # var_flipy = torch.pow(torch.abs(avg_pred_abs - pred_flipy_abs), 2)
+            # var_rot90 = torch.pow(torch.abs(avg_pred_abs - pred_rot90_abs), 2)
+            # var_rot180 = torch.pow(torch.abs(avg_pred_abs - pred_rot180_abs), 2)
+            # var_rot270 = torch.pow(torch.abs(avg_pred_abs - pred_rot270_abs), 2)
+
+            avg_pred = (pred[:,0,:,:] + pred_flipx_inv[:,0,:,:] + pred_flipy_inv[:,0,:,:] + pred_rot90_inv[:,0,:,:] + pred_rot180_inv[:,0,:,:] + pred_rot270_inv[:,0,:,:])/6
 
             # compute variance of each patch as compared to average logits
-            var_flipx = torch.pow(torch.abs(avg_pred_abs - pred_flipx_abs), 2)
-            var_flipy = torch.pow(torch.abs(avg_pred_abs - pred_flipy_abs), 2)
-            var_rot90 = torch.pow(torch.abs(avg_pred_abs - pred_rot90_abs), 2)
-            var_rot180 = torch.pow(torch.abs(avg_pred_abs - pred_rot180_abs), 2)
-            var_rot270 = torch.pow(torch.abs(avg_pred_abs - pred_rot270_abs), 2)
+            var_orig = torch.pow(torch.abs(avg_pred - pred[:,0,:,:]), 2)
+            var_flipx = torch.pow(torch.abs(avg_pred - pred_flipx_inv[:,0,:,:]), 2)
+            var_flipy = torch.pow(torch.abs(avg_pred - pred_flipy_inv[:,0,:,:]), 2)
+            var_rot90 = torch.pow(torch.abs(avg_pred - pred_rot90_inv[:,0,:,:]), 2)
+            var_rot180 = torch.pow(torch.abs(avg_pred - pred_rot180_inv[:,0,:,:]), 2)
+            var_rot270 = torch.pow(torch.abs(avg_pred - pred_rot270_inv[:,0,:,:]), 2)
 
             # aggregate the variance among 5 transformations
             if TRANSFORMATION_SCORE == "AVG":
-                variance = torch.sum(torch.stack([var_flipx, var_flipy, var_rot90, var_rot180, var_rot270]), dim=0) / 5
+                variance = torch.sum(torch.stack([var_orig, var_flipx, var_flipy, var_rot90, var_rot180, var_rot270]), dim=0) / 6
             elif TRANSFORMATION_SCORE == "MIN":
-                variance = torch.min(torch.stack([var_flipx, var_flipy, var_rot90, var_rot180, var_rot270]), dim=0).values
+                variance = torch.min(torch.stack([var_orig, var_flipx, var_flipy, var_rot90, var_rot180, var_rot270]), dim=0).values
             elif TRANSFORMATION_SCORE == "MAX":
-                variance = torch.max(torch.stack([var_flipx, var_flipy, var_rot90, var_rot180, var_rot270]), dim=0).values
+                variance = torch.max(torch.stack([var_orig, var_flipx, var_flipy, var_rot90, var_rot180, var_rot270]), dim=0).values
 
         pred_np = pred.detach().cpu().numpy()
         variance_np = variance.detach().cpu().numpy()
@@ -364,6 +397,7 @@ def compute_entropy_variance(outputs, TRANSFORMATION_SCORE):
 
         entropy_computed = log_out * prob_out
         entropy_computed = torch.sum(entropy_computed, dim=1)
+        # entropy_computed = entropy_computed[:,0,:,:] # TODO: check
         entropy_list.append(entropy_computed)
 
     avg_entropy = (entropy_list[0] + entropy_list[1] + entropy_list[2] + entropy_list[3] + entropy_list[4] + entropy_list[5])/6
@@ -376,7 +410,7 @@ def compute_entropy_variance(outputs, TRANSFORMATION_SCORE):
     var_rot180 = torch.pow(torch.abs(avg_entropy - entropy_list[4]), 2)
     var_rot270 = torch.pow(torch.abs(avg_entropy - entropy_list[5]), 2)
 
-    # aggregate the variance among 5 transformations
+    # aggregate the variance among 6 transformations
     if TRANSFORMATION_SCORE == "AVG":
         entropy_variance = torch.sum(torch.stack([var_orig, var_flipx, var_flipy, var_rot90, var_rot180, var_rot270]), dim=0) / 6
     elif TRANSFORMATION_SCORE == "MIN":
@@ -617,7 +651,7 @@ def center_crop(stictched_data, original_height, original_width, image = False, 
     
     return cropped
 
-def get_superpixel_scores(superpixels_group, logits, forest_prob, SUPERPIXEL_SCORE):
+def get_superpixel_scores(superpixels_group, logits, forest_prob, SUPERPIXEL_SCORE, method):
     superpixel_scores = {}
     for sid, pixels in superpixels_group.items():
         total_score = 0
@@ -640,10 +674,11 @@ def get_superpixel_scores(superpixels_group, logits, forest_prob, SUPERPIXEL_SCO
             # elif config.COD:
             #     prob_score += forest_score
 
-            if config.TAKE_PRODUCT:
-                prob_score *= forest_score
-            else:
-                prob_score += forest_score
+            # if config.TAKE_PRODUCT:
+            #     prob_score *= forest_score
+            # else:
+
+            prob_score = prob_score + config.LAMBDA_3 * forest_score
 
             total_score += prob_score
             if prob_score < min_score:
@@ -718,7 +753,7 @@ def loss_self_consistency(logits: list, labels):
     # for transformed_logit in logits[1:]:
     for transformed_logit in logits:
         # l1, l2 = original_logit, transformed_logit
-        l1, l2 = avg_logits, transformed_logit
+        l1, l2 = avg_logits[:,0,:,:], transformed_logit[:,0,:,:] # only consider flood class
         diff = torch.subtract(l1, l2)
         diff = unknown_mask * diff # TODO: check this!!!!!!!!!, only computing loss for unknown pixels
         norm = torch.norm(diff)
@@ -727,7 +762,8 @@ def loss_self_consistency(logits: list, labels):
 
     _, W, H, C = logits[0].shape
     # loss = (total_sum)/(W * H * C * counter)
-    loss = (total_sum)/(unknown_pixels_count * C * counter) # TODO: check this!!!!!!!!!, only computing loss for unknown pixels
+    # loss = (total_sum)/(unknown_pixels_count * C * counter)
+    loss = (total_sum)/(unknown_pixels_count * counter)
     return loss
 
 def loss_self_consistency_acquisition(logits: list):
@@ -1124,13 +1160,13 @@ def recommend_superpixels(TEST_REGION, entropy, probability, cod, transformation
     
     if config.PROBABILITY:
         # get aggregate score of each superpixel
-        superpixel_scores = get_superpixel_scores(superpixels_group, pred_offset_agg, forest_prob, config.SUPERPIXEL_SCORE)
+        superpixel_scores = get_superpixel_scores(superpixels_group, pred_offset_agg, forest_prob, config.SUPERPIXEL_SCORE, method='offset')
 
         # sort by prob score in ascending order; most uncertain superpixel first (whichever is close to 0.5)
         superpixel_scores = dict(sorted(superpixel_scores.items(), key=lambda item: item[1]))
     elif config.ENTROPY:
         # get aggregate score of each superpixel
-        superpixel_scores = get_superpixel_scores(superpixels_group, entropy_agg, forest_prob, config.SUPERPIXEL_SCORE)
+        superpixel_scores = get_superpixel_scores(superpixels_group, entropy_agg, forest_prob, config.SUPERPIXEL_SCORE, method='entropy')
 
         # sort by prob score in descending order; highest entropy first
         # superpixel_scores = dict(sorted(superpixel_scores.items(), key=lambda item: item[1]), reverse=True)
@@ -1143,7 +1179,7 @@ def recommend_superpixels(TEST_REGION, entropy, probability, cod, transformation
             superpixel_score = "MAX"
             
         # get aggregate score of each superpixel
-        superpixel_scores = get_superpixel_scores(superpixels_group, cod_loss_unpadded, forest_prob, superpixel_score)
+        superpixel_scores = get_superpixel_scores(superpixels_group, cod_loss_unpadded, forest_prob, superpixel_score, method='cod')
 
         # sort by prob score in ascending order; most uncertain superpixel first (whichever is close to 0.5)
         # superpixel_scores = dict(sorted(superpixel_scores.items(), key=lambda item: item[1]), reverse=True)
@@ -1438,6 +1474,9 @@ def train(TEST_REGION, entropy, probability, cod, transformation_agg, superpixel
 
             # flip and rotate; add all 6
             all_logits = [pred_backbone, pred_flipx_inv, pred_flipy_inv, pred_rot90_inv, pred_rot180_inv, pred_rot270_inv]
+
+            print("PRED_SHAPE: ", pred_backbone.shape)
+            print("PRED_flipy_inv_shape: ", pred_flipy_inv.shape)
 
             # create a mask of unlabeled pixels
             ones = torch.ones_like(labels)

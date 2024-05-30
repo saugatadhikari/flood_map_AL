@@ -18,6 +18,7 @@ BETA_2 = 0.1
 
 LAMBDA_1 = 0.1
 LAMBDA_2 = 0.2
+LAMBDA_3 = 1 # TODO: tune it
 
 LAMBDA_1_A2 = 0.2
 LAMBDA_2_A2 = 0.2
