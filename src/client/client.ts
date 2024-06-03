@@ -99,6 +99,7 @@ const transform_agg = urlParams.get('t_agg');
 const pixel_agg = urlParams.get('p_agg');
 const sc_loss = urlParams.get('sc_loss')
 const cod_loss = urlParams.get('cod_loss')
+const use_forest = urlParams.get('use_forest')
 
 console.log(useParams, acq_func, transform_agg, pixel_agg);
 
@@ -369,7 +370,8 @@ var uniforms = {
     minSuperpixel: {value: 0},
     maxSuperpixel: {value: 0},
     sc_loss: {value: 1},
-    cod_loss: {value: 1}
+    cod_loss: {value: 1},
+    use_forest: {value: 1}
 }
 const viewFolder = gui.addFolder('Settings')
 const scFolder = gui.addFolder('Uncertainty Measure')
@@ -740,6 +742,13 @@ if (cod_loss == '0'){
 }
 else if (cod_loss == '1'){
     uniforms.cod_loss.value = 1;
+}
+
+if (use_forest == '0'){
+    uniforms.use_forest.value = 0;
+}
+else if (use_forest == '1'){
+    uniforms.use_forest.value = 1;
 }
     
 

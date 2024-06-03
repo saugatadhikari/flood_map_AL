@@ -655,6 +655,7 @@ async function retrainSession(event: Event) {
                                     &superpixel_agg=${superpixel_agg}
                                     &sc_loss=${uniforms.sc_loss.value}
                                     &cod_loss=${uniforms.cod_loss.value}
+                                    &use_forest=${uniforms.use_forest.value}
                                     &testRegion=${testRegion}`, {
                         method: 'POST',
                         body: formData,

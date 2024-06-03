@@ -244,6 +244,7 @@ def retrain():
 
     use_sc_loss = int(request.args.get('sc_loss', 1))
     use_cod_loss = int(request.args.get('cod_loss', 1))
+    use_forest = int(request.args.get('use_forest', 1))
 
     print(entropy, probability, cod)
 
@@ -270,7 +271,7 @@ def retrain():
         # Process the file as needed, for example, save it to the server
         file.save(f'./users/{student_id}/output/R{TEST_REGION}_labels.png')
 
-        train(TEST_REGION, entropy, probability, cod, transformation_agg, superpixel_agg, student_id, al_cycle, al_iters, use_sc_loss, use_cod_loss)
+        train(TEST_REGION, entropy, probability, cod, transformation_agg, superpixel_agg, student_id, al_cycle, al_iters, use_sc_loss, use_cod_loss, use_forest)
 
         payload = make_response(jsonify({'status': 'success', 'taskId': student_id}), 200)
         payload.headers.add('Access-Control-Allow-Origin', '*')

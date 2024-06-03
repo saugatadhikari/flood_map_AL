@@ -651,7 +651,7 @@ def center_crop(stictched_data, original_height, original_width, image = False, 
     
     return cropped
 
-def get_superpixel_scores(superpixels_group, logits, forest_prob, SUPERPIXEL_SCORE, method):
+def get_superpixel_scores(superpixels_group, logits, forest_prob, SUPERPIXEL_SCORE, method, use_forest=1):
     superpixel_scores = {}
     for sid, pixels in superpixels_group.items():
         total_score = 0
@@ -678,7 +678,8 @@ def get_superpixel_scores(superpixels_group, logits, forest_prob, SUPERPIXEL_SCO
             #     prob_score *= forest_score
             # else:
 
-            prob_score = prob_score + config.LAMBDA_3 * forest_score
+            if use_forest:
+                prob_score = prob_score + config.LAMBDA_3 * forest_score
 
             total_score += prob_score
             if prob_score < min_score:
@@ -760,7 +761,7 @@ def loss_self_consistency(logits: list, labels):
         total_sum += norm
         counter += 1
 
-    _, W, H, C = logits[0].shape
+    _, C, W, H = logits[0].shape
     # loss = (total_sum)/(W * H * C * counter)
     # loss = (total_sum)/(unknown_pixels_count * C * counter)
     loss = (total_sum)/(unknown_pixels_count * counter)
@@ -878,7 +879,7 @@ def convert_to_rgb(input_array):
     return rgb_image
 
 
-def recommend_superpixels(TEST_REGION, entropy, probability, cod, transformation_agg, superpixel_agg, student_id, al_cycle, updated_labels=None):
+def recommend_superpixels(TEST_REGION, entropy, probability, cod, transformation_agg, superpixel_agg, student_id, al_cycle, updated_labels=None, use_forest=1):
     student_id = student_id.strip()
 
     if not os.path.exists(f"./users/{student_id}"):
@@ -1160,13 +1161,13 @@ def recommend_superpixels(TEST_REGION, entropy, probability, cod, transformation
     
     if config.PROBABILITY:
         # get aggregate score of each superpixel
-        superpixel_scores = get_superpixel_scores(superpixels_group, pred_offset_agg, forest_prob, config.SUPERPIXEL_SCORE, method='offset')
+        superpixel_scores = get_superpixel_scores(superpixels_group, pred_offset_agg, forest_prob, config.SUPERPIXEL_SCORE, method='offset', use_forest=use_forest)
 
         # sort by prob score in ascending order; most uncertain superpixel first (whichever is close to 0.5)
         superpixel_scores = dict(sorted(superpixel_scores.items(), key=lambda item: item[1]))
     elif config.ENTROPY:
         # get aggregate score of each superpixel
-        superpixel_scores = get_superpixel_scores(superpixels_group, entropy_agg, forest_prob, config.SUPERPIXEL_SCORE, method='entropy')
+        superpixel_scores = get_superpixel_scores(superpixels_group, entropy_agg, forest_prob, config.SUPERPIXEL_SCORE, method='entropy', use_forest=use_forest)
 
         # sort by prob score in descending order; highest entropy first
         # superpixel_scores = dict(sorted(superpixel_scores.items(), key=lambda item: item[1]), reverse=True)
@@ -1285,7 +1286,7 @@ def ann_to_labels(png_image, TEST_REGION):
         
 
 
-def train(TEST_REGION, entropy, probability, cod, transformation_agg, superpixel_agg, student_id, al_cycle, al_iters, use_sc_loss=1, use_cod_loss=1):
+def train(TEST_REGION, entropy, probability, cod, transformation_agg, superpixel_agg, student_id, al_cycle, al_iters, use_sc_loss=1, use_cod_loss=1, use_forest=1):
     start_time = time.time()
 
     student_id = student_id.strip()
@@ -1537,7 +1538,7 @@ def train(TEST_REGION, entropy, probability, cod, transformation_agg, superpixel
     
 
     # call AL pipeline once the model is retrained
-    metrices = recommend_superpixels(TEST_REGION, config.ENTROPY, config.PROBABILITY, config.COD, transformation_agg, superpixel_agg, student_id, al_cycle, updated_labels=updated_labels)
+    metrices = recommend_superpixels(TEST_REGION, config.ENTROPY, config.PROBABILITY, config.COD, transformation_agg, superpixel_agg, student_id, al_cycle, updated_labels=updated_labels, use_forest=use_forest)
 
     torch.save({'epoch': last_epoch,  # when resuming, we will start at the next epoch
                 'model': models['backbone'].state_dict(),
