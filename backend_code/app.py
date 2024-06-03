@@ -133,7 +133,7 @@ def superpixel():
     if int(recommend):
         start_time = time.time()
         
-        metrices = recommend_superpixels(TEST_REGION, entropy, probability, cod, transformation_agg, superpixel_agg, student_id, al_cycle, use_forest=use_forest)
+        metrices, metrices_unlabeled = recommend_superpixels(TEST_REGION, entropy, probability, cod, transformation_agg, superpixel_agg, student_id, al_cycle, use_forest=use_forest)
 
         end_time = time.time()
         elapsed_time = (end_time - start_time)/60
@@ -141,6 +141,9 @@ def superpixel():
 
         metrices += "\n"
         metrices += f"Elapsed Time: {elapsed_time} minutes"
+
+        metrices += "\n\n"
+        metrices += metrices_unlabeled
 
         file_path = f"./users/{student_id}/output/Region_{TEST_REGION}_Metrics_C{al_cycle}.txt"
         with open(file_path, "w") as fp:
@@ -223,7 +226,7 @@ def metrics_json():
     with open(file_path, 'r') as json_file:
         # metrices = json.load(json_file)
         lines = json_file.readlines()
-        metrices = " ".join(lines[:-2])
+        metrices = " ".join(lines[:-24])
 
     payload = make_response(jsonify(metrices), 200)
     payload.headers.add('Access-Control-Allow-Origin', '*')
