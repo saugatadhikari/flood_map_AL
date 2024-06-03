@@ -170,6 +170,9 @@ def move_files(TEST_REGION):
             continue
             
         file_region_num = int(file.split("_")[1])
+        if file_region_num != TEST_REGION:
+            continue
+
         source = os.path.join(base_path + "cropped_al", file)
         
         destination = os.path.join(base_path + f"Region_{TEST_REGION}_TEST/cropped_data_val_test_al", file)
