@@ -226,7 +226,7 @@ def metrics_json():
     with open(file_path, 'r') as json_file:
         # metrices = json.load(json_file)
         lines = json_file.readlines()
-        metrices = " ".join(lines[:-24])
+        metrices = " ".join(lines[:-14])
 
     payload = make_response(jsonify(metrices), 200)
     payload.headers.add('Access-Control-Allow-Origin', '*')
