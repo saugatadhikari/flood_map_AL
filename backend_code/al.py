@@ -1487,8 +1487,8 @@ def train(TEST_REGION, entropy, probability, cod, transformation_agg, superpixel
             # flip and rotate; add all 6
             all_logits = [pred_backbone, pred_flipx_inv, pred_flipy_inv, pred_rot90_inv, pred_rot180_inv, pred_rot270_inv]
 
-            print("PRED_SHAPE: ", pred_backbone.shape)
-            print("PRED_flipy_inv_shape: ", pred_flipy_inv.shape)
+            # print("PRED_SHAPE: ", pred_backbone.shape)
+            # print("PRED_flipy_inv_shape: ", pred_flipy_inv.shape)
 
             # create a mask of unlabeled pixels
             ones = torch.ones_like(labels)
