@@ -931,6 +931,11 @@ def recommend_superpixels(TEST_REGION, entropy, probability, cod, transformation
     print("trans_score", "superpixel_score")
     print(config.TRANSFORMATION_SCORE, config.SUPERPIXEL_SCORE)
 
+    file_path_lambda_search = f"./users/{student_id}/output/Region_{TEST_REGION}_TEST/L1.{config.LAMBDA_1}_L2.{config.LAMBDA_2}_L3.{config.LAMBDA_3}_B1.{config.BETA_1}_B2.{config.BETA_2}_P.{config.PROBABILITY}_E.{config.ENTROPY}_C.{config.COD}_EVAR.{config.ENT_VAR}_TA.{config.TRANSFORMATION_SCORE}_SA.{config.SUPERPIXEL_SCORE}"
+    print(file_path_lambda_search)
+    if not os.path.exists(file_path_lambda_search):
+        os.mkdir(file_path_lambda_search)
+
 
     start = time.time()
     DATASET_PATH = "./data_al/repo/Features_7_Channels"
@@ -1213,6 +1218,10 @@ def recommend_superpixels(TEST_REGION, entropy, probability, cod, transformation
 
     metrices += "\n"
     metrices += f"Annotated Pixels: {annotated_pixels_percent} %"
+
+    file_path_lambda_search = f"./users/{student_id}/output/Region_{TEST_REGION}_TEST/L1.{config.LAMBDA_1}_L2.{config.LAMBDA_2}_L3.{config.LAMBDA_3}_B1.{config.BETA_1}_B2.{config.BETA_2}_P.{config.PROBABILITY}_E.{config.ENTROPY}_C.{config.COD}_EVAR.{config.ENT_VAR}_TA.{config.TRANSFORMATION_SCORE}_SA.{config.SUPERPIXEL_SCORE}/Region_{TEST_REGION}_Metrics.txt"
+    with open(file_path_lambda_search, "w") as fp:
+        fp.write(metrices)
 
     file_path = f"./users/{student_id}/output/Region_{TEST_REGION}_Metrics_C{al_cycle}.txt"
     with open(file_path, "w") as fp:
