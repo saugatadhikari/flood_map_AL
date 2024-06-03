@@ -89,13 +89,16 @@ def superpixel():
 
     student_id = request.args.get('taskId', '').strip()
     TEST_REGION = int(request.args.get('testRegion', 1))
-
-    print(entropy, probability, cod)
+    use_forest = int(request.args.get('use_forest', 1))
+    
+    print("superpixel_agg, transformation_agg: ")
     print(superpixel_agg, transformation_agg)
     print(student_id)
-
-    # # TODO: remove
-    # recommend = 0
+    
+    print("entropy, probability, cod: ")
+    print(entropy, probability, cod)
+    
+    print("use_forest: ", use_forest)
 
     # read AL cycle from txt file
     try:
@@ -130,7 +133,7 @@ def superpixel():
     if int(recommend):
         start_time = time.time()
         
-        metrices = recommend_superpixels(TEST_REGION, entropy, probability, cod, transformation_agg, superpixel_agg, student_id, al_cycle)
+        metrices = recommend_superpixels(TEST_REGION, entropy, probability, cod, transformation_agg, superpixel_agg, student_id, al_cycle, use_forest=use_forest)
 
         end_time = time.time()
         elapsed_time = (end_time - start_time)/60
@@ -245,8 +248,12 @@ def retrain():
     use_sc_loss = int(request.args.get('sc_loss', 1))
     use_cod_loss = int(request.args.get('cod_loss', 1))
     use_forest = int(request.args.get('use_forest', 1))
-
+    
+    print("entropy, probability, cod: ")
     print(entropy, probability, cod)
+    
+    print("sc_loss, cod_loss, use_forest: ")
+    print(use_sc_loss, use_cod_loss, use_forest)
 
     # read cycle from txt file
     try:
