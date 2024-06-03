@@ -1208,7 +1208,7 @@ def recommend_superpixels(TEST_REGION, entropy, probability, cod, transformation
     pred_final = np.where(pred_final == 0, -1, pred_final)
 
     gt_labels = np.load(f"./data_al/repo/groundTruths/Region_{TEST_REGION}_GT_Labels.npy")
-    metrices = elev_eval.run_eval(pred_final, gt_labels)
+    metrices, metrices_unlabeled = elev_eval.run_eval(pred_final, gt_labels, updated_labels)
 
     # updated_labels = ann_to_labels(f'./users/{student_id}/output/R{TEST_REGION}_labels.png', TEST_REGION)
 
@@ -1270,7 +1270,7 @@ def recommend_superpixels(TEST_REGION, entropy, probability, cod, transformation
     pim = Image.fromarray(pred_labels)
     pim.convert('RGB').save(f'./users/{student_id}/output/R{TEST_REGION}_pred_test.png')
 
-    return metrices
+    return metrices, metrices_unlabeled
 
 
 def ann_to_labels(png_image, TEST_REGION):
@@ -1549,7 +1549,7 @@ def train(TEST_REGION, entropy, probability, cod, transformation_agg, superpixel
     
 
     # call AL pipeline once the model is retrained
-    metrices = recommend_superpixels(TEST_REGION, config.ENTROPY, config.PROBABILITY, config.COD, transformation_agg, superpixel_agg, student_id, al_cycle, updated_labels=updated_labels, use_forest=use_forest)
+    metrices, metrices_unlabeled = recommend_superpixels(TEST_REGION, config.ENTROPY, config.PROBABILITY, config.COD, transformation_agg, superpixel_agg, student_id, al_cycle, updated_labels=updated_labels, use_forest=use_forest)
 
     torch.save({'epoch': last_epoch,  # when resuming, we will start at the next epoch
                 'model': models['backbone'].state_dict(),
@@ -1562,6 +1562,11 @@ def train(TEST_REGION, entropy, probability, cod, transformation_agg, superpixel
 
     metrices += "\n"
     metrices += f"Elapsed Time: {elapsed_time} minutes"
+
+    metrices += "\n"
+    metrices += "\n"
+    metrices += metrices_unlabeled
+
 
     file_path = f"./users/{student_id}/output/Region_{TEST_REGION}_Metrics_C{al_cycle}.txt"
     with open(file_path, "w") as fp:
