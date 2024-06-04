@@ -1270,7 +1270,7 @@ def recommend_superpixels(TEST_REGION, entropy, probability, cod, transformation
     pim = Image.fromarray(pred_labels)
     pim.convert('RGB').save(f'./users/{student_id}/output/R{TEST_REGION}_pred_test.png')
 
-    return metrices, metrices_unlabeled
+    return metrices, metrices_unlabeled, selected_superpixels, superpixels_group
 
 
 def ann_to_labels(png_image, TEST_REGION):
@@ -1549,7 +1549,7 @@ def train(TEST_REGION, entropy, probability, cod, transformation_agg, superpixel
     
 
     # call AL pipeline once the model is retrained
-    metrices, metrices_unlabeled = recommend_superpixels(TEST_REGION, config.ENTROPY, config.PROBABILITY, config.COD, transformation_agg, superpixel_agg, student_id, al_cycle, updated_labels=updated_labels, use_forest=use_forest)
+    metrices, metrices_unlabeled, _, _ = recommend_superpixels(TEST_REGION, config.ENTROPY, config.PROBABILITY, config.COD, transformation_agg, superpixel_agg, student_id, al_cycle, updated_labels=updated_labels, use_forest=use_forest)
 
     torch.save({'epoch': last_epoch,  # when resuming, we will start at the next epoch
                 'model': models['backbone'].state_dict(),

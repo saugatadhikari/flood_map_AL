@@ -133,7 +133,7 @@ def superpixel():
     if int(recommend):
         start_time = time.time()
         
-        metrices, metrices_unlabeled = recommend_superpixels(TEST_REGION, entropy, probability, cod, transformation_agg, superpixel_agg, student_id, al_cycle, use_forest=use_forest)
+        metrices, metrices_unlabeled, _, _ = recommend_superpixels(TEST_REGION, entropy, probability, cod, transformation_agg, superpixel_agg, student_id, al_cycle, use_forest=use_forest)
 
         end_time = time.time()
         elapsed_time = (end_time - start_time)/60
