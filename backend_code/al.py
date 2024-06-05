@@ -750,6 +750,7 @@ def loss_self_consistency(logits: list, labels):
         diff = torch.subtract(l1, l2)
         diff = unknown_mask * diff
         sq_l2_norm = torch.pow(torch.abs(diff), 2)
+        sq_l2_norm = torch.sum(sq_l2_norm).item()
         total_sum += sq_l2_norm
         counter += 1
 
