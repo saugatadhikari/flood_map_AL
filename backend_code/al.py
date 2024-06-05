@@ -397,7 +397,6 @@ def compute_entropy_variance(outputs, TRANSFORMATION_SCORE):
 
         entropy_computed = log_out * prob_out
         entropy_computed = torch.sum(entropy_computed, dim=1)
-        # entropy_computed = entropy_computed[:,0,:,:] # TODO: check
         entropy_list.append(entropy_computed)
 
     avg_entropy = (entropy_list[0] + entropy_list[1] + entropy_list[2] + entropy_list[3] + entropy_list[4] + entropy_list[5])/6
@@ -735,13 +734,6 @@ def loss_self_consistency(logits: list, labels):
 
     total_sum = 0
     counter = 0
-#     for comb in itertools.combinations(logits, 2):
-#         l1, l2 = comb
-#         diff = torch.subtract(l1, l2)
-# #         norm = diff.norm(dim=1, p=2) # calculate L2-norm
-#         norm = torch.norm(diff)
-#         total_sum += norm
-#         counter += 1
 
     # Generate Pred Masks
     ones = torch.ones_like(labels)
@@ -756,9 +748,9 @@ def loss_self_consistency(logits: list, labels):
         # l1, l2 = original_logit, transformed_logit
         l1, l2 = avg_logits[:,0,:,:], transformed_logit[:,0,:,:] # only consider flood class
         diff = torch.subtract(l1, l2)
-        diff = unknown_mask * diff # TODO: check this!!!!!!!!!, only computing loss for unknown pixels
-        norm = torch.norm(diff)
-        total_sum += norm
+        diff = unknown_mask * diff
+        sq_l2_norm = torch.pow(torch.abs(diff), 2)
+        total_sum += sq_l2_norm
         counter += 1
 
     _, C, W, H = logits[0].shape
