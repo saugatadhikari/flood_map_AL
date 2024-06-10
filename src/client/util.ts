@@ -542,7 +542,7 @@ async function pollBackendTask(taskId: string) {
         // annotationTexture.needsUpdate = true;
   
         // Continue with other actions on the frontend
-        const superpixelBuffer = await fetch(`http://127.0.0.1:5000/superpixel?recommend=${0}`).then(response => response.arrayBuffer());
+        const superpixelBuffer = await fetch(`http://127.0.0.1:5000/superpixel?recommend=${0}&use_forest=${uniforms.use_forest.value}`).then(response => response.arrayBuffer());
         // console.log("superpixelBuffer: ", superpixelBuffer)
 
         // Convert ArrayBuffer to base64
@@ -653,6 +653,9 @@ async function retrainSession(event: Event) {
                                     &cod=${uniforms.cod.value}
                                     &transformation_agg=${transformation_agg}
                                     &superpixel_agg=${superpixel_agg}
+                                    &sc_loss=${uniforms.sc_loss.value}
+                                    &cod_loss=${uniforms.cod_loss.value}
+                                    &use_forest=${uniforms.use_forest.value}
                                     &testRegion=${testRegion}`, {
                         method: 'POST',
                         body: formData,
@@ -670,6 +673,7 @@ async function retrainSession(event: Event) {
         const superpixelBuffer = await fetch(`http://127.0.0.1:5000/superpixel?recommend=${0}
                                                                                 &taskId=${taskId}
                                                                                 &testRegion=${testRegion}
+                                                                                &use_forest=${uniforms.use_forest.value}
                                                                             `).then(response => response.arrayBuffer());
         // console.log("superpixelBuffer: ", superpixelBuffer)
 

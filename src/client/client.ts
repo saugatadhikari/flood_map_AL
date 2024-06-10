@@ -97,6 +97,9 @@ const acq_func = urlParams.get('func');
 const use_cod = urlParams.get('cod');
 const transform_agg = urlParams.get('t_agg');
 const pixel_agg = urlParams.get('p_agg');
+const sc_loss = urlParams.get('sc_loss')
+const cod_loss = urlParams.get('cod_loss')
+const use_forest = urlParams.get('use_forest')
 
 console.log(useParams, acq_func, transform_agg, pixel_agg);
 
@@ -366,6 +369,9 @@ var uniforms = {
     avgSuperpixel: {value: 1},
     minSuperpixel: {value: 0},
     maxSuperpixel: {value: 0},
+    sc_loss: {value: 1},
+    cod_loss: {value: 1},
+    use_forest: {value: 1}
 }
 const viewFolder = gui.addFolder('Settings')
 const scFolder = gui.addFolder('Uncertainty Measure')
@@ -724,6 +730,29 @@ if (useParams == '1'){
     }
 }
 
+if (sc_loss == '0'){
+    uniforms.sc_loss.value = 0;
+}
+else if (sc_loss == '1'){
+    uniforms.sc_loss.value = 1;
+}
+
+if (cod_loss == '0'){
+    uniforms.cod_loss.value = 0;
+}
+else if (cod_loss == '1'){
+    uniforms.cod_loss.value = 1;
+}
+
+if (use_forest == '0'){
+    uniforms.use_forest.value = 0;
+}
+else if (use_forest == '1'){
+    uniforms.use_forest.value = 1;
+}
+    
+
+
 console.log("uniforms.probab: ", uniforms.probability.value)
 console.log("uniforms.ent: ", uniforms.entropy.value)
 console.log("uniforms.cod: ", uniforms.cod.value)
@@ -732,6 +761,9 @@ console.log("uniforms.avgTransformation: ", uniforms.avgTransformation.value)
 console.log("uniforms.maxTransformation: ", uniforms.maxTransformation.value)
 console.log("uniforms.avgSuperpixel: ", uniforms.avgSuperpixel.value)
 console.log("uniforms.minSuperpixel: ", uniforms.minSuperpixel.value)
+
+console.log("sc_loss: ", uniforms.sc_loss.value)
+console.log("cod_loss: ", uniforms.cod_loss.value)
 
 
 // Set up the mutual exclusivity behavior

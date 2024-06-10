@@ -89,13 +89,16 @@ def superpixel():
 
     student_id = request.args.get('taskId', '').strip()
     TEST_REGION = int(request.args.get('testRegion', 1))
-
-    print(entropy, probability, cod)
+    use_forest = int(request.args.get('use_forest', 1))
+    
+    print("superpixel_agg, transformation_agg: ")
     print(superpixel_agg, transformation_agg)
     print(student_id)
-
-    # # TODO: remove
-    # recommend = 0
+    
+    print("entropy, probability, cod: ")
+    print(entropy, probability, cod)
+    
+    print("use_forest: ", use_forest)
 
     # read AL cycle from txt file
     try:
@@ -130,7 +133,7 @@ def superpixel():
     if int(recommend):
         start_time = time.time()
         
-        metrices = recommend_superpixels(TEST_REGION, entropy, probability, cod, transformation_agg, superpixel_agg, student_id, al_cycle)
+        metrices, metrices_unlabeled, _, _ = recommend_superpixels(TEST_REGION, entropy, probability, cod, transformation_agg, superpixel_agg, student_id, al_cycle, use_forest=use_forest)
 
         end_time = time.time()
         elapsed_time = (end_time - start_time)/60
@@ -138,6 +141,9 @@ def superpixel():
 
         metrices += "\n"
         metrices += f"Elapsed Time: {elapsed_time} minutes"
+
+        metrices += "\n\n"
+        metrices += metrices_unlabeled
 
         file_path = f"./users/{student_id}/output/Region_{TEST_REGION}_Metrics_C{al_cycle}.txt"
         with open(file_path, "w") as fp:
@@ -220,7 +226,7 @@ def metrics_json():
     with open(file_path, 'r') as json_file:
         # metrices = json.load(json_file)
         lines = json_file.readlines()
-        metrices = " ".join(lines[:-2])
+        metrices = " ".join(lines[:-16])
 
     payload = make_response(jsonify(metrices), 200)
     payload.headers.add('Access-Control-Allow-Origin', '*')
@@ -242,7 +248,15 @@ def retrain():
     transformation_agg = request.args.get('transformation_agg', 'avg').strip()
     superpixel_agg = request.args.get('superpixel_agg', 'avg').strip()
 
+    use_sc_loss = int(request.args.get('sc_loss', 1))
+    use_cod_loss = int(request.args.get('cod_loss', 1))
+    use_forest = int(request.args.get('use_forest', 1))
+    
+    print("entropy, probability, cod: ")
     print(entropy, probability, cod)
+    
+    print("sc_loss, cod_loss, use_forest: ")
+    print(use_sc_loss, use_cod_loss, use_forest)
 
     # read cycle from txt file
     try:
@@ -267,7 +281,7 @@ def retrain():
         # Process the file as needed, for example, save it to the server
         file.save(f'./users/{student_id}/output/R{TEST_REGION}_labels.png')
 
-        train(TEST_REGION, entropy, probability, cod, transformation_agg, superpixel_agg, student_id, al_cycle, al_iters)
+        train(TEST_REGION, entropy, probability, cod, transformation_agg, superpixel_agg, student_id, al_cycle, al_iters, use_sc_loss, use_cod_loss, use_forest)
 
         payload = make_response(jsonify({'status': 'success', 'taskId': student_id}), 200)
         payload.headers.add('Access-Control-Allow-Origin', '*')

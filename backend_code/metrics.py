@@ -27,7 +27,7 @@ class Evaluator():
         self.DRY_FSCORE = 0
         self.FLOOD_FSCORE = 0
     
-    def run_eval(self, pred_unpadded, gt_labels):
+    def run_eval(self, pred_unpadded, gt_labels, updated_labels):
         
         # cm = confusion_matrix(gt_labels.flatten(), pred_unpadded.flatten(), labels = [0, 1, -1])
         cm = confusion_matrix(gt_labels.flatten(), pred_unpadded.flatten(), labels = [-1, 1, 0])
@@ -111,7 +111,96 @@ class Evaluator():
         metrices_str += "\n"
         metrices_str += f"Flood IOU        : {flood_iou}"
 
-        return metrices_str
+        # cm = confusion_matrix(gt_labels.flatten(), pred_unpadded.flatten(), labels = [0, 1, -1])
+        indices_to_remove = np.where(updated_labels != 0)
+        mask = np.ones(updated_labels.shape, dtype=bool)
+        mask[indices_to_remove] = False
+
+        gt_masked = gt_labels[mask]
+        pred_masked = pred_unpadded[mask] 
+
+        cm = confusion_matrix(gt_masked.flatten(), pred_masked.flatten(), labels = [-1, 1, 0])
+        TP_0 = cm[0][0]
+        FP_0 = cm[1][0]
+        FN_0 = cm[0][1]
+        TN_0 = cm[1][1]
+        
+        
+        TP_1 = cm[1][1]
+        FP_1 = cm[0][1]
+        FN_1 = cm[1][0]
+        TN_1 = cm[0][0]
+        
+        
+        ####DRY
+        self.DRY_ACC = ((TP_0+TN_0)/(TP_0+TN_0+FP_0+FN_0))*100
+        # print("Dry Accuracy: ", self.DRY_ACC)
+        self.DRY_PRECISION = ((TP_0)/(TP_0+FP_0))*100
+        # print("Dry Precision: ", self.DRY_PRECISION)
+        self.DRY_RECALL = ((TP_0)/(TP_0+FN_0))*100
+        # print("Dry Recall: ", self.DRY_RECALL)
+        self.DRY_FSCORE = ((2*self.DRY_PRECISION*self.DRY_RECALL)/(self.DRY_PRECISION+self.DRY_RECALL))
+        # print("Dry F1 score: ", self.DRY_FSCORE)
+        self.DRY_IOU = (TP_0)/(TP_0+FP_0+FN_0)
+        # print("Dry IoU: ", self.DRY_IOU)
+        
+        # print("\n")
+        
+        ####FLOOD
+        self.FLOOD_ACC = ((TP_1+TN_1)/(TP_1+TN_1+FP_1+FN_1))*100
+        # print("Flood Accuracy: ", self.FLOOD_ACC)
+        self.FLOOD_PRECISION = ((TP_1)/(TP_1+FP_1))*100
+        # print("Flood Precision: ", self.FLOOD_PRECISION)
+        self.FLOOD_RECALL = ((TP_1)/(TP_1+FN_1))*100
+        # print("Flood Recall: ", self.FLOOD_RECALL)
+        self.FLOOD_FSCORE = ((2*self.FLOOD_PRECISION*self.FLOOD_RECALL)/(self.FLOOD_PRECISION+self.FLOOD_RECALL))
+        # print("Flood F1 score: ", self.FLOOD_FSCORE)
+        self.FLOOD_IOU = (TP_1)/(TP_1+FP_1+FN_1)
+        # print("Flood IoU: ", self.FLOOD_IOU)
+
+        metrices_unlabeled = {
+            "Accuracy": float("{:.2f}".format(self.DRY_ACC)),
+            "Dry Precision": float("{:.2f}".format(self.DRY_PRECISION)),
+            "Dry Recall": float("{:.2f}".format(self.DRY_RECALL)),
+            "Dry F1 score": float("{:.2f}".format(self.DRY_FSCORE)),
+            "Dry IOU": float("{:.2f}".format(self.DRY_IOU)),
+            "Flood Precision": float("{:.2f}".format(self.FLOOD_PRECISION)),
+            "Flood Recall": float("{:.2f}".format(self.FLOOD_RECALL)),
+            "Flood F1 score": float("{:.2f}".format(self.FLOOD_FSCORE)),
+            "Flood IOU": float("{:.2f}".format(self.FLOOD_IOU)),
+        }
+
+        dry_acc = float("{:.2f}".format(self.DRY_ACC))
+        dry_precision = float("{:.2f}".format(self.DRY_PRECISION))
+        dry_recall = float("{:.2f}".format(self.DRY_RECALL))
+        dry_f1 = float("{:.2f}".format(self.DRY_FSCORE))
+        dry_iou = float("{:.2f}".format(self.DRY_IOU))
+        flood_precision = float("{:.2f}".format(self.FLOOD_PRECISION))
+        flood_recall = float("{:.2f}".format(self.FLOOD_RECALL))
+        flood_f1 = float("{:.2f}".format(self.FLOOD_FSCORE))
+        flood_iou = float("{:.2f}".format(self.FLOOD_IOU))
+
+        metrices_str_unlabeled = "   Metrics (Unit: %)    "
+        metrices_str_unlabeled += "\n\n"
+        metrices_str_unlabeled += f"Accuracy         : {dry_acc}"
+        metrices_str_unlabeled += "\n\n"
+        metrices_str_unlabeled += f"Dry Precision    : {dry_precision}"
+        metrices_str_unlabeled += "\n"
+        metrices_str_unlabeled += f"Dry Recall       : {dry_recall}"
+        metrices_str_unlabeled += "\n"
+        metrices_str_unlabeled += f"Dry F1 score     : {dry_f1}"
+        metrices_str_unlabeled += "\n"
+        metrices_str_unlabeled += f"Dry IOU          : {dry_iou}"
+        metrices_str_unlabeled += "\n\n"
+        metrices_str_unlabeled += f"Flood Precision  : {flood_precision}"
+        metrices_str_unlabeled += "\n"
+        metrices_str_unlabeled += f"Flood Recall     : {flood_recall}"
+        metrices_str_unlabeled += "\n"
+        metrices_str_unlabeled += f"Flood F1 score   : {flood_f1}"
+        metrices_str_unlabeled += "\n"
+        metrices_str_unlabeled += f"Flood IOU        : {flood_iou}"
+
+        return metrices_str, metrices_str_unlabeled
 
         
     
